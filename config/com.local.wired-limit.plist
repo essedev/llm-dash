@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  com.local.wired-limit.plist
+  Imposta iogpu.wired_limit_mb a 28000 (28 GB) ad ogni boot.
+  Necessario su macOS Tahoe per consentire a MLX di tenere wired-in modelli grandi
+  senza pageout durante decode.
+
+  Installazione:
+    sudo cp config/com.local.wired-limit.plist /Library/LaunchDaemons/
+    sudo chown root:wheel /Library/LaunchDaemons/com.local.wired-limit.plist
+    sudo chmod 644 /Library/LaunchDaemons/com.local.wired-limit.plist
+    sudo launchctl load -w /Library/LaunchDaemons/com.local.wired-limit.plist
+
+  Verifica:    sysctl iogpu.wired_limit_mb
+  Disabilita:  sudo launchctl unload /Library/LaunchDaemons/com.local.wired-limit.plist
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.local.wired-limit</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/sbin/sysctl</string>
+        <string>iogpu.wired_limit_mb=28000</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <false/>
+    <key>StandardErrorPath</key>
+    <string>/var/log/wired-limit.log</string>
+    <key>StandardOutPath</key>
+    <string>/var/log/wired-limit.log</string>
+</dict>
+</plist>

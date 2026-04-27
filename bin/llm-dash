@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# llm-dash - avvia la mini dashboard web
+#
+# Uso: llm-dash         (foreground, porta 1230)
+#      llm-dash --bg    (background, log in /tmp/llm-dash.log)
+#
+# Stop background: pkill -f "llm-dash"
+
+set -euo pipefail
+
+PROJECT="$HOME/Development/Projects/llm-dash"
+PORT="${DASH_PORT:-1230}"
+
+stop_existing() {
+  # match per il path completo del progetto (più robusto)
+  pkill -f "$PROJECT/.venv/bin/python3 main.py" 2>/dev/null || true
+  pkill -f "$PROJECT/main.py" 2>/dev/null || true
+  sleep 1
+}
+
+if [[ "${1:-}" == "--bg" ]]; then
+  stop_existing
+  cd "$PROJECT"
+  nohup uv run python main.py > /tmp/llm-dash.log 2>&1 &
+  disown -a
+  echo "llm-dash avviato in background su http://127.0.0.1:$PORT"
+  echo "Log: tail -f /tmp/llm-dash.log"
+  exit 0
+fi
+
+if [[ "${1:-}" == "stop" ]]; then
+  stop_existing
+  echo "llm-dash fermato"
+  exit 0
+fi
+
+cd "$PROJECT"
+echo "==> http://127.0.0.1:$PORT"
+exec uv run python main.py

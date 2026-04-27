@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# llm-down - ferma tutti i mlx_lm.server e la sessione tmux 'llm'
+pkill -f "mlx_lm.server" 2>/dev/null && echo "mlx_lm.server killed" || echo "no mlx_lm.server running"
+tmux kill-session -t llm 2>/dev/null && echo "tmux session 'llm' chiusa" || true

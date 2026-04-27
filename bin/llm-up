@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# llm-up - avvia un singolo mlx_lm.server in background con il profilo scelto
+# Uso: llm-up [build|coder|plan|coder-old]   default = build
+#
+# Solo 1 modello attivo per volta su 32 GB di RAM.
+# Per cambiare modello usa: llm-switch <profile>
+# Per fermare: llm-down
+
+set -euo pipefail
+
+PROFILE="${1:-build}"
+
+# stop server precedente se esiste
+if pgrep -f "mlx_lm.server" >/dev/null; then
+  echo "fermo mlx_lm.server precedente..."
+  pkill -f "mlx_lm.server" 2>/dev/null || true
+  sleep 2
+fi
+
+if command -v tmux >/dev/null && [[ "${LLM_NO_TMUX:-0}" != "1" ]]; then
+  tmux kill-session -t llm 2>/dev/null || true
+  tmux new-session -d -s llm -n server "llm-serve $PROFILE"
+  echo "Server '$PROFILE' avviato in tmux 'llm' (porta 1234)"
+  echo "Logs:  tmux attach -t llm"
+  echo "Stop:  llm-down"
+else
+  nohup llm-serve "$PROFILE" > "/tmp/llm-${PROFILE}.log" 2>&1 &
+  disown -a
+  echo "Server '$PROFILE' avviato in background (porta 1234)"
+  echo "Logs:  tail -f /tmp/llm-${PROFILE}.log"
+fi

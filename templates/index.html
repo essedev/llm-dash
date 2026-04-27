@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>LLM Dash</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="stylesheet" href="/static/output.css" />
+<link rel="stylesheet" href="/static/highlight.css" />
+<script src="/static/marked.min.js" defer></script>
+<script src="/static/highlight.min.js" defer></script>
+<script src="/static/app.js" defer></script>
+<script src="/static/alpine.min.js" defer></script>
+</head>
+<body class="min-h-screen bg-grid">
+
+<!-- ═══════════ TOP BRAND BAR ═══════════ -->
+<header class="border-b border-[var(--color-line-soft)]">
+  <div class="max-w-[1700px] mx-auto px-6 py-3.5 flex items-center gap-6">
+    <div class="flex items-baseline gap-3">
+      <span class="brand">LLM<span class="brand-dot">·</span>Dash</span>
+      <span class="caption">v0.2 / Instrument</span>
+    </div>
+    <div class="ml-auto flex items-center gap-5 caption">
+      <span>Runtime · Port 1234</span>
+      <span class="text-[var(--color-fg-ghost)]">|</span>
+      <span>UI · Port 1230</span>
+    </div>
+  </div>
+  <div class="header-rule"></div>
+</header>
+
+<!-- ═══════════ MAIN GRID ═══════════ -->
+<!-- Order: Control plane → Archive → Chat -->
+<div class="max-w-[1700px] mx-auto px-6 py-5 grid grid-cols-1 lg:grid-cols-[320px_260px_1fr] gap-5 h-[calc(100vh-65px)]">
+
+  <!-- ═══════════ COL 1: CONTROL PLANE ═══════════ -->
+  <aside class="flex flex-col gap-4 overflow-y-auto pr-1" x-data="dash()" x-init="poll()">
+
+    <!-- ── Status frame ── -->
+    <div class="frame p-4 rise rise-1">
+      <div class="flex items-start justify-between mb-3.5">
+        <div class="flex items-center gap-3">
+          <span class="status-dot"
+                :class="status.switching ? 'warn' : (status.running ? 'live' : '')"></span>
+          <div>
+            <div class="panel-title leading-none" x-text="status.running ? 'Online' : 'Offline'">Offline</div>
+            <div class="caption mt-1.5">Runtime · MLX</div>
+          </div>
+        </div>
+        <div class="text-right">
+          <div class="mono-num text-[var(--color-fg-dim)] text-[13px]" x-text="status.uptime || '—'">—</div>
+          <div class="caption mt-1.5">Uptime</div>
+        </div>
+      </div>
+
+      <div class="rule-x mb-3"></div>
+
+      <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2.5 text-[12.5px]">
+        <dt class="caption self-center">Profile</dt>
+        <dd class="font-mono text-right"
+            :class="status.profile ? 'text-[var(--color-accent)]' : 'text-[var(--color-fg-faint)]'"
+            x-text="status.profile || '—'">—</dd>
+
+        <dt class="caption self-center">Model</dt>
+        <dd class="font-mono text-right text-[11px] text-[var(--color-fg-dim)] truncate"
+            :title="status.model || ''"
+            x-text="status.model || '—'">—</dd>
+
+        <dt class="caption self-center">PID</dt>
+        <dd class="mono-num text-right text-[var(--color-fg-dim)]" x-text="status.pid || '—'">—</dd>
+      </dl>
+
+      <div x-show="status.switching" x-transition class="mt-3 frame-inset px-3 py-2 flex items-center gap-2.5">
+        <span class="status-dot warn"></span>
+        <span class="caption" style="color: var(--color-warm);">Switching</span>
+        <span class="font-mono text-[11px] text-[var(--color-fg-dim)] ml-auto" x-text="status.switching_profile || ''"></span>
+      </div>
+    </div>
+
+    <!-- ── Profiles ── -->
+    <div class="frame p-4 rise rise-2">
+      <div class="flex items-baseline justify-between mb-3">
+        <span class="caption">Profiles</span>
+        <span class="caption-bright"><span class="mono-num" x-text="String(Object.keys(profiles).length).padStart(2,'0')">00</span> available</span>
+      </div>
+
+      <div class="space-y-2">
+        <template x-for="(p, key) in profiles" :key="key">
+          <button
+            @click="switchTo(key)"
+            :disabled="status.switching || status.profile === key"
+            class="profile-btn"
+            :class="status.profile === key ? 'active' : ''">
+            <div class="flex items-baseline justify-between gap-2">
+              <span class="text-[13.5px] font-medium tracking-tight text-[var(--color-fg-strong)]" x-text="p.label"></span>
+              <span class="mono-num text-[11px] text-[var(--color-fg-mute)]" x-text="String(p.size_gb).padStart(2,'0') + ' GB'"></span>
+            </div>
+            <div class="mt-1 text-[11.5px] text-[var(--color-fg-dim)] leading-snug" x-text="p.note"></div>
+            <div class="mt-2 caption flex items-center gap-2">
+              <span x-text="p.tag"></span>
+              <span x-show="status.switching && status.switching_profile === key"
+                    class="ml-auto flex items-center gap-1 text-[var(--color-warm)]">
+                <span class="spinner-dot"></span>
+                <span>LOADING</span>
+              </span>
+            </div>
+          </button>
+        </template>
+      </div>
+
+      <button @click="stopServer()" :disabled="!status.running" class="btn-danger w-full mt-3">
+        Halt Server
+      </button>
+    </div>
+
+    <!-- ── Memory ── -->
+    <div class="frame p-4 rise rise-3">
+      <div class="flex items-baseline justify-between mb-3">
+        <span class="caption">Memory</span>
+        <span class="caption-bright"><span class="mono-num" x-text="mem.total_gb">0</span> GB total</span>
+      </div>
+
+      <!-- Pressure indicator (primary) -->
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-baseline gap-1.5">
+          <span class="kpi-num" :class="pressureColor(mem.pressure)" x-text="(mem.percent || 0).toFixed(0)">0</span>
+          <span class="kpi-unit">% used</span>
+        </div>
+        <span class="pressure-badge" :class="'pressure-' + (mem.pressure || 'low')">
+          <span class="status-dot" :class="mem.pressure === 'high' ? 'crit' : (mem.pressure === 'medium' ? 'warn' : 'live')" style="width:6px;height:6px;"></span>
+          <span x-text="(mem.pressure || 'low').toUpperCase()">LOW</span>
+        </span>
+      </div>
+
+      <!-- Stacked breakdown bar: wired | active | compressed | inactive | free -->
+      <div class="stack-meter">
+        <template x-for="seg in memSegments(mem)" :key="seg.label">
+          <div class="stack-seg" :class="seg.cls"
+               :style="'width:' + seg.pct + '%'"
+               :title="seg.label + ': ' + seg.gb.toFixed(1) + ' GB'"></div>
+        </template>
+      </div>
+
+      <!-- Legend -->
+      <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 mt-3 text-[11px]">
+        <div class="flex items-center gap-1.5"><span class="dot-legend wired"></span><span class="caption">Wired</span><span class="ml-auto mono-num text-[var(--color-fg-dim)]" x-text="(mem.wired_gb||0).toFixed(1)+' GB'"></span></div>
+        <div class="flex items-center gap-1.5"><span class="dot-legend active"></span><span class="caption">Active</span><span class="ml-auto mono-num text-[var(--color-fg-dim)]" x-text="(mem.active_gb||0).toFixed(1)+' GB'"></span></div>
+        <div class="flex items-center gap-1.5"><span class="dot-legend compressed"></span><span class="caption">Compr</span><span class="ml-auto mono-num text-[var(--color-fg-dim)]" x-text="(mem.compressed_gb||0).toFixed(1)+' GB'"></span></div>
+        <div class="flex items-center gap-1.5"><span class="dot-legend inactive"></span><span class="caption">Cache</span><span class="ml-auto mono-num text-[var(--color-fg-dim)]" x-text="(mem.inactive_gb||0).toFixed(1)+' GB'"></span></div>
+      </div>
+
+      <div class="rule-dotted my-3"></div>
+
+      <!-- Reclaimable -->
+      <div class="flex items-baseline justify-between mb-3">
+        <span class="caption">Reclaimable</span>
+        <span class="mono-num text-[12.5px]"
+              :class="mem.available_gb >= 8 ? 'text-[var(--color-accent)]' : 'text-[var(--color-fg-dim)]'"
+              x-text="(mem.available_gb||0).toFixed(1) + ' GB'">— GB</span>
+      </div>
+      <div class="text-[11px] text-[var(--color-fg-dim)] leading-snug" x-text="fitMessage(mem.available_gb, status.profile)"></div>
+
+      <div class="rule-dotted my-3"></div>
+
+      <!-- Swap -->
+      <div>
+        <div class="flex items-baseline justify-between mb-1.5">
+          <span class="caption">Swap</span>
+          <span class="mono-num text-[11.5px] text-[var(--color-fg-dim)]">
+            <span x-text="(mem.swap_used_gb||0).toFixed(1)"></span><span class="text-[var(--color-fg-faint)]"> / </span><span x-text="(mem.swap_total_gb||0).toFixed(1)"></span> GB
+          </span>
+        </div>
+        <div class="meter" style="height: 5px;">
+          <div class="meter-fill"
+               :class="mem.swap_used_gb / Math.max(mem.swap_total_gb,1) > 0.7 ? 'warn' : 'info'"
+               :style="'width:' + (mem.swap_total_gb ? (mem.swap_used_gb / mem.swap_total_gb * 100) : 0) + '%'"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Logs ── -->
+    <div class="frame rise rise-4" x-data="{open:false}">
+      <button @click="open = !open" class="w-full px-4 py-3 flex items-center justify-between hover:bg-[var(--color-surface-2)] transition rounded-t-[5px]">
+        <div class="flex items-center gap-2">
+          <span class="caption">Event Log</span>
+          <span class="font-mono text-[10.5px] text-[var(--color-fg-mute)]" x-data="logsView()" x-init="poll()" x-text="lines.length ? '· ' + lines.length : ''"></span>
+        </div>
+        <span class="font-mono text-[12px] text-[var(--color-fg-dim)]" x-text="open ? '[ − ]' : '[ + ]'"></span>
+      </button>
+      <div x-show="open" x-transition class="px-4 pb-3 max-h-44 overflow-y-auto" x-data="logsView()" x-init="poll()">
+        <template x-for="(line, i) in lines.slice().reverse()" :key="i">
+          <div class="text-[10.5px] font-mono text-[var(--color-fg-dim)] py-1 border-b border-[var(--color-line-soft)] last:border-b-0 leading-snug break-all" x-text="line"></div>
+        </template>
+        <div x-show="!lines.length" class="text-[10.5px] font-mono text-[var(--color-fg-mute)] py-2">No events recorded</div>
+      </div>
+    </div>
+
+    <div class="text-center caption pt-1 pb-2 text-[var(--color-fg-ghost)]">· · ·</div>
+  </aside>
+
+  <!-- ═══════════ COL 2: ARCHIVE (CONVERSATIONS) ═══════════ -->
+  <aside class="frame flex flex-col overflow-hidden rise rise-2" x-data="conversations()" x-init="init()">
+    <div class="px-4 py-3.5 flex items-center justify-between border-b border-[var(--color-line-soft)]">
+      <div class="flex items-baseline gap-2">
+        <span class="caption">Archive</span>
+        <span class="caption-bright"><span class="mono-num" x-text="String(sortedList.length).padStart(2, '0')"></span></span>
+      </div>
+      <button @click="newChat()" class="btn-ghost hover:!text-[var(--color-accent)] hover:!border-[var(--color-accent-dim)]">+ New</button>
+    </div>
+
+    <div class="flex-1 overflow-y-auto">
+      <template x-for="c in sortedList" :key="c.id">
+        <div
+          @click="select(c.id)"
+          @keydown.enter.prevent="select(c.id)"
+          @keydown.space.prevent="select(c.id)"
+          role="button"
+          tabindex="0"
+          class="conv-item"
+          :class="c.id === currentId ? 'active' : ''">
+          <div class="conv-item-title" x-text="c.title || 'Untitled'"></div>
+          <div class="conv-item-meta" x-text="formatDate(c.updated)"></div>
+          <button
+            type="button"
+            @click.stop="deleteConv(c.id, c.title)"
+            class="conv-item-del"
+            :aria-label="'Erase ' + (c.title || 'untitled')"
+            title="Erase conversation">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+            </svg>
+          </button>
+        </div>
+      </template>
+
+      <div x-show="!sortedList.length" class="px-5 py-14 text-center">
+        <div class="ascii-art mb-3 inline-block">
+─────────────
+─ ─ ─ ─
+─────────────
+─ ─ ─ ─
+─────────────
+─ ─ ─ ─
+        </div>
+        <div class="caption">No conversations</div>
+        <div class="text-[11px] text-[var(--color-fg-mute)] mt-2 leading-snug">
+          Press <span class="font-mono text-[var(--color-fg-dim)]">+ New</span> to start
+        </div>
+      </div>
+    </div>
+
+    <div class="px-4 py-2.5 border-t border-[var(--color-line-soft)] flex items-center justify-between">
+      <span class="caption">
+        <span class="mono-num text-[var(--color-fg-dim)]" x-text="String(sortedList.length).padStart(2, '0')"></span> Entries
+      </span>
+      <button @click="clearAll()" class="caption hover:!text-[var(--color-crit)] transition" :class="!sortedList.length ? 'opacity-30 pointer-events-none' : ''">Purge All</button>
+    </div>
+  </aside>
+
+  <!-- ═══════════ COL 3: CHAT ═══════════ -->
+  <main class="frame flex flex-col overflow-hidden rise rise-3" x-data="chat()" x-init="bindStorage()">
+
+    <!-- Header -->
+    <header class="px-6 py-3.5 border-b border-[var(--color-line-soft)] flex items-center gap-4">
+      <div class="flex-1 min-w-0">
+        <input type="text"
+               x-model="title"
+               @blur="persist()"
+               placeholder="Untitled Conversation"
+               class="input-title" />
+        <div class="flex items-center gap-3 mt-0.5 ml-2">
+          <span class="caption">Conversation</span>
+          <span x-show="ctxLimit() > 0" class="caption flex items-center gap-2"
+                :title="(lastUsage.prompt_tokens > 0 && !streaming ? 'Contesto reale (server): ' : 'Contesto stimato (~4 char/tok): ') + ctxUsed() + ' tokens su ' + ctxLimit()">
+            <span class="text-[var(--color-fg-ghost)]">·</span>
+            <span class="ctx-meter">
+              <span class="ctx-meter-fill"
+                    :class="ctxPercent() > 85 ? 'crit' : (ctxPercent() > 65 ? 'warn' : '')"
+                    :style="'width:' + ctxPercent() + '%'"></span>
+            </span>
+            <span><span class="mono-num"
+                       :class="ctxPercent() > 85 ? 'text-[var(--color-crit)]' : (ctxPercent() > 65 ? 'text-[var(--color-warm)]' : 'text-[var(--color-fg-dim)]')"
+                       x-text="fmtCtx(ctxUsed())"></span><span class="text-[var(--color-fg-mute)]">/</span><span class="mono-num text-[var(--color-fg-mute)]" x-text="fmtCtx(ctxLimit())"></span> <span class="text-[var(--color-fg-mute)]">CTX</span></span>
+          </span>
+          <span x-show="lastStats.tps" class="caption flex items-center gap-2.5"
+                title="Throughput dell'ultima risposta: token/secondo, token totali, secondi trascorsi">
+            <span class="text-[var(--color-fg-ghost)]">·</span>
+            <span><span class="text-[var(--color-accent)] mono-num" x-text="lastStats.tps"></span> <span class="text-[var(--color-fg-mute)]">tok/s</span></span>
+            <span class="text-[var(--color-fg-ghost)]">·</span>
+            <span><span class="mono-num text-[var(--color-fg-dim)]" x-text="lastStats.tokens"></span> <span class="text-[var(--color-fg-mute)]">tok</span></span>
+            <span class="text-[var(--color-fg-ghost)]">·</span>
+            <span><span class="mono-num text-[var(--color-fg-dim)]" x-text="lastStats.elapsed"></span><span class="text-[var(--color-fg-mute)]">s</span></span>
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Switching banner -->
+    <div x-show="status_switching" x-transition class="mx-6 mt-4 load-banner">
+      <span class="spinner-dot" style="color: var(--color-warm);"></span>
+      <div class="flex-1">
+        <div class="label">Loading model</div>
+        <div class="detail mt-0.5">
+          Profile <span class="text-[var(--color-fg-strong)]" x-text="status_switching_profile || ''"></span>
+          <span class="text-[var(--color-fg-mute)]">·</span> mlx_lm.server is starting
+        </div>
+      </div>
+    </div>
+
+    <!-- Messages -->
+    <div class="flex-1 overflow-y-auto px-6 py-6 space-y-5" x-ref="msgs">
+      <template x-for="(m,i) in messages" :key="i">
+        <div :class="m.role === 'user' ? 'flex justify-end' : ''">
+          <template x-if="m.role === 'user'">
+            <div class="max-w-[80%]">
+              <div class="caption mb-1.5 text-right">You</div>
+              <div class="bubble-user" x-text="m.content"></div>
+            </div>
+          </template>
+          <template x-if="m.role === 'assistant'">
+            <div class="max-w-[88%]">
+              <div class="bubble-asst-tag">Assistant</div>
+              <div class="bubble-asst markdown-body" x-html="renderMd(m.content)"></div>
+            </div>
+          </template>
+        </div>
+      </template>
+
+      <div x-show="streaming">
+        <div class="max-w-[88%]">
+          <div class="bubble-asst-tag" x-text="streamBuf ? 'Assistant' : 'Routing prompt'">Assistant</div>
+          <div class="bubble-asst">
+            <template x-if="streamBuf">
+              <div class="stream-text"><span x-text="streamBuf"></span><span class="cursor-blink">▌</span></div>
+            </template>
+            <template x-if="!streamBuf">
+              <div class="typing-dots"><span></span><span></span><span></span></div>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <!-- Empty state -->
+      <div x-show="!messages.length && !streaming" class="text-center py-16">
+        <div class="ascii-art mx-auto inline-block">
+┌─────────────────┐
+│                 │
+│    > READY _    │
+│                 │
+└─────────────────┘
+        </div>
+        <div class="panel-title text-[18px] mt-6 text-[var(--color-fg-strong)]">
+          <span x-show="!status_switching">Awaiting Input</span>
+          <span x-show="status_switching" style="color: var(--color-warm);">Loading model...</span>
+        </div>
+        <div class="caption mt-2.5" x-show="!status_switching">Type below · Press Enter to send</div>
+        <div x-show="!status_running && !status_switching" class="mt-5 inline-block frame-inset px-4 py-2">
+          <span class="caption" style="color: var(--color-warm);">Runtime Offline</span>
+          <span class="text-[11px] text-[var(--color-fg-dim)] ml-2">Select a profile to start</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Composer -->
+    <form @submit.prevent="streaming ? stopGen() : send()" class="border-t border-[var(--color-line-soft)] p-4 flex gap-3 items-center">
+      <div class="flex-1 relative">
+        <textarea
+          x-model="input"
+          @keydown.enter.prevent="if(!$event.shiftKey) send()"
+          :disabled="streaming || status_switching || !status_running"
+          rows="2"
+          :placeholder="status_switching ? 'Model is loading...' : (status_running ? 'Compose a prompt...' : 'Runtime offline - select a profile')"
+          class="composer pr-20"></textarea>
+        <div class="absolute bottom-2.5 right-3 caption pointer-events-none">
+          <span x-show="!input.length && !streaming">↵ Send</span>
+          <span x-show="input.length && !streaming" class="mono-num"><span x-text="input.length"></span> CH</span>
+        </div>
+      </div>
+      <template x-if="!streaming">
+        <button type="submit"
+                :disabled="status_switching || !status_running || !input.trim()"
+                class="btn-accent shrink-0">
+          <span x-show="!status_switching">Transmit</span>
+          <span x-show="status_switching" class="flex items-center gap-1.5">
+            <span class="spinner-dot" style="color: #08080a;"></span>
+            <span>Loading</span>
+          </span>
+        </button>
+      </template>
+      <template x-if="streaming">
+        <button type="button" @click="stopGen()" class="btn-stop shrink-0">
+          <span class="stop-square"></span>
+          <span x-text="streamBuf ? 'Stop' : 'Cancel'">Stop</span>
+        </button>
+      </template>
+    </form>
+  </main>
+
+</div>
+
+<!-- ═══════════ DIALOG ═══════════ -->
+<div x-data
+     x-show="$store.dialog.open"
+     x-cloak
+     class="dialog-backdrop"
+     @keydown.escape.window="$store.dialog._close(false)"
+     @keydown.window="if ($store.dialog.open && $event.key === 'Enter') { $event.preventDefault(); $store.dialog._close(true); }"
+     @click.self="$store.dialog._close(false)"
+     x-transition:enter="dlg-fade-enter"
+     x-transition:enter-start="dlg-fade-start"
+     x-transition:enter-end="dlg-fade-end"
+     x-transition:leave="dlg-fade-leave"
+     x-transition:leave-start="dlg-fade-end"
+     x-transition:leave-end="dlg-fade-start">
+  <div class="dialog-frame"
+       :class="'variant-' + $store.dialog.variant"
+       @click.stop
+       x-transition:enter="dlg-pop-enter"
+       x-transition:enter-start="dlg-pop-start"
+       x-transition:enter-end="dlg-pop-end">
+
+    <div class="dialog-head">
+      <span class="dialog-glyph" x-text="$store.dialog.variantGlyph()"></span>
+      <span class="dialog-tag" x-text="$store.dialog.variantTag()"></span>
+      <span class="dialog-rule"></span>
+    </div>
+
+    <div class="dialog-title" x-text="$store.dialog.title"></div>
+    <div class="dialog-message" x-text="$store.dialog.message" x-show="$store.dialog.message"></div>
+
+    <div class="dialog-actions">
+      <button x-show="$store.dialog.showCancel"
+              @click="$store.dialog._close(false)"
+              class="btn-ghost"
+              x-text="$store.dialog.cancelLabel"></button>
+      <button data-dialog-confirm
+              @click="$store.dialog._close(true)"
+              :class="$store.dialog.variant === 'danger' ? 'btn-crit' : 'btn-accent'"
+              x-text="$store.dialog.confirmLabel"></button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

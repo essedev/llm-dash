@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# llm-switch <profile> - alias di llm-up, sostituisce modello attivo
+exec llm-up "$@"

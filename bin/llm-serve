@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# llm-serve - avvia mlx_lm.server con un modello scelto
+#
+# Uso:
+#   llm-serve <profile>         avvia il server in foreground sulla porta del profile
+#
+# Profili e porte di default:
+#   build    -> GLM-4.7-Flash             (porta 1234) - default opencode
+#   coder    -> Qwen3.6-35B-A3B-UD-MLX   (porta 1234) - alternativa build
+#   plan     -> Qwen3-30B-A3B-Instruct    (porta 1235) - default planner
+#   coder-old-> Qwen3-Coder-30B           (porta 1234) - fallback fast
+#
+# Override: PORT=N llm-serve <profile>    THINK=true llm-serve <profile>
+
+set -euo pipefail
+
+PROFILE="${1:-build}"
+THINK="${THINK:-false}"
+MODELS_DIR="$HOME/.lmstudio/models"
+
+CHAT_ARGS=""
+case "$PROFILE" in
+  build|glm)
+    MODEL="$MODELS_DIR/lmstudio-community/GLM-4.7-Flash-MLX-4bit"
+    DEFAULT_PORT=1234
+    CHAT_ARGS='{"enable_thinking":'"$THINK"'}'
+    ;;
+  coder)
+    MODEL="$MODELS_DIR/unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit"
+    DEFAULT_PORT=1234
+    CHAT_ARGS='{"enable_thinking":'"$THINK"'}'
+    ;;
+  plan|planner)
+    MODEL="$MODELS_DIR/lmstudio-community/Qwen3-30B-A3B-Instruct-2507-MLX-4bit"
+    DEFAULT_PORT=1234
+    ;;
+  coder-old)
+    MODEL="$MODELS_DIR/lmstudio-community/Qwen3-Coder-30B-A3B-Instruct-MLX-4bit"
+    DEFAULT_PORT=1234
+    ;;
+  *)
+    echo "uso: llm-serve <profile>" >&2
+    echo "  build    -> GLM-4.7-Flash    (1234) - default opencode build agent" >&2
+    echo "  coder    -> Qwen3.6-35B-A3B  (1234) - alternativa qualita coding" >&2
+    echo "  plan     -> Qwen3-30B-Instr  (1235) - default opencode plan agent" >&2
+    echo "  coder-old-> Qwen3-Coder-30B  (1234) - fallback fast 37 t/s" >&2
+    echo "" >&2
+    echo "env: PORT=N  THINK=true|false (default false)" >&2
+    exit 1
+    ;;
+esac
+
+PORT="${PORT:-$DEFAULT_PORT}"
+
+if [[ ! -d "$MODEL" ]]; then
+  echo "ERROR: modello non trovato in $MODEL" >&2
+  exit 1
+fi
+
+echo ">>> Profile:  $PROFILE"
+echo ">>> Model:    $(basename "$MODEL")"
+echo ">>> Port:     $PORT"
+echo ">>> Thinking: $THINK"
+echo ">>> Endpoint: http://127.0.0.1:$PORT/v1"
+echo
+
+ARGS=(
+  --model "$MODEL"
+  --host 127.0.0.1
+  --port "$PORT"
+  --log-level INFO
+  --temp 0.0
+  --max-tokens 8192
+  --prefill-step-size 2048
+)
+
+if [[ -n "$CHAT_ARGS" ]]; then
+  ARGS+=(--chat-template-args "$CHAT_ARGS")
+fi
+
+exec mlx_lm.server "${ARGS[@]}"

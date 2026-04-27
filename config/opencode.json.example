@@ -1,0 +1,41 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "_comment": "Config per opencode con backend mlx_lm.server. Sostituisci '/Users/doppia' con il tuo $HOME se diverso.",
+  "mcp": {
+    "context7": {
+      "type": "remote",
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {
+        "CONTEXT7_API_KEY": "{env:CONTEXT7_API_KEY}"
+      }
+    }
+  },
+  "provider": {
+    "mlx": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "mlx_lm.server (porta 1234)",
+      "options": {
+        "baseURL": "http://127.0.0.1:1234/v1"
+      },
+      "models": {
+        "/Users/doppia/.lmstudio/models/lmstudio-community/GLM-4.7-Flash-MLX-4bit": {
+          "name": "GLM-4.7-Flash (build default)",
+          "limit": { "context": 65536, "output": 8192 }
+        },
+        "/Users/doppia/.lmstudio/models/unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit": {
+          "name": "Qwen3.6-35B-A3B (deeper coding)",
+          "limit": { "context": 65536, "output": 8192 }
+        },
+        "/Users/doppia/.lmstudio/models/lmstudio-community/Qwen3-30B-A3B-Instruct-2507-MLX-4bit": {
+          "name": "Qwen3-30B-Instruct (planner)",
+          "limit": { "context": 65536, "output": 8192 }
+        },
+        "/Users/doppia/.lmstudio/models/lmstudio-community/Qwen3-Coder-30B-A3B-Instruct-MLX-4bit": {
+          "name": "Qwen3-Coder-30B (fast fallback ~37 t/s)",
+          "limit": { "context": 65536, "output": 8192 }
+        }
+      }
+    }
+  },
+  "model": "mlx//Users/doppia/.lmstudio/models/lmstudio-community/GLM-4.7-Flash-MLX-4bit"
+}
