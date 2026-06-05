@@ -1,18 +1,32 @@
 # Modelli - Catalogo, Classifica, Benchmark
 
-## Catalogo attivo (post-cleanup)
+## Catalogo su disco
 
-7 modelli su disco in `~/.lmstudio/models/`, totale ~98 GB. Ogni modello ha un ruolo dedicato.
+Modelli presenti in `~/.lmstudio/models/`. Divisi per **tier**, lo stesso concetto usato in dashboard (sezione "Altri") e in `llm-serve list`. Per allineare automaticamente disco e config vedi [MODEL_SYNC.md](MODEL_SYNC.md).
 
-| # | Modello | Size | Tipo | Ruolo |
-|---|---|---|---|---|
-| 1 | `lmstudio-community/GLM-4.7-Flash-MLX-4bit` | 16 GB | MoE agentic | **Build default** - tool calling, ~32 t/s |
-| 2 | `unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit` | 20 GB | MoE coder | Deeper coding, SWE-bench 73.4% |
-| 3 | `lmstudio-community/Qwen3-30B-A3B-Instruct-2507-MLX-4bit` | 17 GB | MoE general | **Planner** reasoning + planning |
-| 4 | `lmstudio-community/Qwen3-Coder-30B-A3B-Instruct-MLX-4bit` | 16 GB | MoE coder | Fast fallback ~37 t/s |
-| 5 | `lmstudio-community/Qwen3-VL-30B-A3B-Instruct-MLX-4bit` | 17 GB | MoE vision | Screenshot/UI mockup |
-| 6 | `unsloth/gemma-4-E4B-it-GGUF` | 6.3 GB | Dense small | Inline/autocomplete fast |
-| 7 | `text-embedding-nomic-embed-text-v1.5` | 84 MB | Embedding | (LM Studio gestito) |
+### Profili default (daily driver agentici)
+
+MoE in formato MLX, >=16 GB, con tool calling parsato nativamente da `mlx_lm.server`.
+
+| Profilo | Modello | Size | Ruolo |
+|---|---|---|---|
+| `build` | `lmstudio-community/GLM-4.7-Flash-MLX-4bit` | 16 GB | **Build default** - tool calling, ~32 t/s |
+| `coder` | `unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit` | 20 GB | Deeper coding, SWE-bench 73.4% |
+| `plan` | `lmstudio-community/Qwen3-30B-A3B-Instruct-2507-MLX-4bit` | 17 GB | **Planner** reasoning + planning |
+| `coder-old` | `lmstudio-community/Qwen3-Coder-30B-A3B-Instruct-MLX-4bit` | 16 GB | Fast fallback ~37 t/s |
+
+### Altri (su disco, non daily driver)
+
+Avviabili dove ha senso, ma fuori dai 4 default per i motivi sotto. I primi 3 sono profili (tier "other"); VL/gemma/embedding non sono profili.
+
+| Profilo | Modello | Size | Perché non è default |
+|---|---|---|---|
+| `coder-14b` | `lmstudio-community/Qwen2.5-Coder-14B-Instruct-MLX-4bit` | 8 GB | `mlx_lm.server` non parsa i suoi tool: niente agentic, solo chat |
+| `qwen35-9b` | `mlx-community/Qwen3.5-9B-MLX-4bit` | 6 GB | Sotto i 16 GB = floor agentic affidabile su questo setup |
+| `qwen3-14b` | `Qwen/Qwen3-14B-MLX-4bit` | 7 GB | Dense 14B general purpose, non agentic-tuned |
+| - | `lmstudio-community/Qwen3-VL-30B-A3B-Instruct-MLX-4bit` | 17 GB | Vision (screenshot/UI): non avviato come profilo testo |
+| - | `unsloth/gemma-4-E4B-it-GGUF` | 6.3 GB | GGUF: `mlx_lm.server` carica solo MLX, qui non è servibile (inline via LM Studio) |
+| - | `text-embedding-nomic-embed-text-v1.5` | 84 MB | Embedding, gestito da LM Studio |
 
 ## Modelli rimossi nel cleanup
 

@@ -4,12 +4,13 @@
 # Uso:
 #   llm-serve <profile>         avvia il server in foreground sulla porta del profile
 #
-# Profili e porte di default:
+# Profili e porte di default (tutti su 1234: 1 modello attivo per volta):
 #   build    -> GLM-4.7-Flash             (porta 1234) - default opencode
 #   coder    -> Qwen3.6-35B-A3B-UD-MLX   (porta 1234) - alternativa build
-#   plan     -> Qwen3-30B-A3B-Instruct    (porta 1235) - default planner
+#   plan     -> Qwen3-30B-A3B-Instruct    (porta 1234) - default planner
 #   coder-old-> Qwen3-Coder-30B           (porta 1234) - fallback fast
 #
+# Lista profili:  llm-serve list
 # Override: PORT=N llm-serve <profile>    THINK=true llm-serve <profile>
 
 set -euo pipefail
@@ -18,8 +19,31 @@ PROFILE="${1:-build}"
 THINK="${THINK:-false}"
 MODELS_DIR="$HOME/.lmstudio/models"
 
+print_profiles() {
+  cat <<'EOF'
+Profili avviabili (llm-up <profile> / llm-switch <profile>):
+
+  default (MoE agentici, tool calling parsato da mlx_lm.server):
+    build      GLM-4.7-Flash             agentic, tool calling, ~32 t/s   [default opencode]
+    coder      Qwen3.6-35B-A3B-UD        deeper coding, SWE-bench 73.4%, ~25-27 t/s
+    plan       Qwen3-30B-Instruct-2507   reasoning + planning
+    coder-old  Qwen3-Coder-30B           fast fallback, ~37 t/s
+
+  altri (avviabili, ma non daily driver agentici - vedi docs/MODELS.md):
+    coder-14b  Qwen2.5-Coder-14B         coder denso; mlx_lm NON ne parsa i tool
+    qwen35-9b  Qwen3.5-9B                leggero, sotto la soglia agentic affidabile
+    qwen3-14b  Qwen3-14B                 dense 14B general purpose
+
+Tutti girano sulla porta 1234 (1 modello attivo per volta su 32 GB).
+EOF
+}
+
 CHAT_ARGS=""
 case "$PROFILE" in
+  list|ls|--list|-l)
+    print_profiles
+    exit 0
+    ;;
   build|glm)
     MODEL="$MODELS_DIR/lmstudio-community/GLM-4.7-Flash-MLX-4bit"
     DEFAULT_PORT=1234
@@ -38,12 +62,22 @@ case "$PROFILE" in
     MODEL="$MODELS_DIR/lmstudio-community/Qwen3-Coder-30B-A3B-Instruct-MLX-4bit"
     DEFAULT_PORT=1234
     ;;
+  coder-14b)
+    MODEL="$MODELS_DIR/lmstudio-community/Qwen2.5-Coder-14B-Instruct-MLX-4bit"
+    DEFAULT_PORT=1234
+    ;;
+  qwen35-9b)
+    MODEL="$MODELS_DIR/mlx-community/Qwen3.5-9B-MLX-4bit"
+    DEFAULT_PORT=1234
+    ;;
+  qwen3-14b)
+    MODEL="$MODELS_DIR/Qwen/Qwen3-14B-MLX-4bit"
+    DEFAULT_PORT=1234
+    ;;
   *)
-    echo "uso: llm-serve <profile>" >&2
-    echo "  build    -> GLM-4.7-Flash    (1234) - default opencode build agent" >&2
-    echo "  coder    -> Qwen3.6-35B-A3B  (1234) - alternativa qualita coding" >&2
-    echo "  plan     -> Qwen3-30B-Instr  (1235) - default opencode plan agent" >&2
-    echo "  coder-old-> Qwen3-Coder-30B  (1234) - fallback fast 37 t/s" >&2
+    echo "profilo sconosciuto: $PROFILE" >&2
+    echo "" >&2
+    print_profiles >&2
     echo "" >&2
     echo "env: PORT=N  THINK=true|false (default false)" >&2
     exit 1

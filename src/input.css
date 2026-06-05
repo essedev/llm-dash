@@ -8,13 +8,13 @@
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 @theme {
-  /* Surfaces - dark with stronger separation */
+  /* Surfaces - dark, low contrast vs bg, separation comes from borders */
   --color-bg: #08080a;
-  --color-surface: #14141a;
-  --color-surface-2: #1c1c24;
-  --color-surface-3: #25252e;
-  --color-line: #34343f;
-  --color-line-soft: #25252e;
+  --color-surface: #0d0d11;
+  --color-surface-2: #14141a;
+  --color-surface-3: #1c1c24;
+  --color-line: #2a2a33;
+  --color-line-soft: #1f1f27;
 
   /* Text - higher contrast on each tier */
   --color-fg: #fafafa;
@@ -209,6 +209,15 @@
   }
   .profile-btn:disabled { opacity: 0.45; cursor: not-allowed; }
   .profile-btn.active:disabled { opacity: 1; cursor: default; }
+
+  /* profili "altri": attenuati per segnalare che non sono daily driver */
+  .profile-btn-other {
+    background: transparent;
+    border-style: dashed;
+    border-color: var(--color-line-soft);
+  }
+  .profile-btn-other:not(.active) { opacity: 0.78; }
+  .profile-btn-other:hover:not(:disabled) { opacity: 1; }
 
   /* ─── LCD-style metric bar ─── */
   .meter {

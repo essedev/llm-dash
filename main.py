@@ -27,12 +27,14 @@ LLM_BASE = f"http://127.0.0.1:{LLM_PORT}/v1"
 BASE_DIR = Path(__file__).parent
 
 PROFILES: dict[str, dict[str, Any]] = {
+    # --- default: MoE agentici >=16 GB, tool calling parsato da mlx_lm.server ---
     "build": {
         "label": "GLM-4.7-Flash",
         "tag": "build (default)",
         "size_gb": 16,
         "note": "agentic, tool calling, ~32 t/s",
         "ctx": 65536,
+        "tier": "default",
     },
     "coder": {
         "label": "Qwen3.6-35B-A3B-UD",
@@ -40,6 +42,7 @@ PROFILES: dict[str, dict[str, Any]] = {
         "size_gb": 20,
         "note": "SWE-bench 73.4%, ~25-27 t/s",
         "ctx": 65536,
+        "tier": "default",
     },
     "plan": {
         "label": "Qwen3-30B-Instruct-2507",
@@ -47,6 +50,7 @@ PROFILES: dict[str, dict[str, Any]] = {
         "size_gb": 17,
         "note": "reasoning + planning",
         "ctx": 65536,
+        "tier": "default",
     },
     "coder-old": {
         "label": "Qwen3-Coder-30B (2025)",
@@ -54,6 +58,32 @@ PROFILES: dict[str, dict[str, Any]] = {
         "size_gb": 16,
         "note": "~37 t/s",
         "ctx": 65536,
+        "tier": "default",
+    },
+    # --- altri: presenti su disco, non daily driver agentici (vedi docs/MODELS.md) ---
+    "coder-14b": {
+        "label": "Qwen2.5-Coder-14B",
+        "tag": "altri · no tool calling",
+        "size_gb": 8,
+        "note": "coder denso; mlx_lm non parsa i suoi tool",
+        "ctx": 32768,
+        "tier": "other",
+    },
+    "qwen35-9b": {
+        "label": "Qwen3.5-9B",
+        "tag": "altri · piccolo",
+        "size_gb": 6,
+        "note": "leggero, sotto la soglia agentic affidabile",
+        "ctx": 32768,
+        "tier": "other",
+    },
+    "qwen3-14b": {
+        "label": "Qwen3-14B",
+        "tag": "altri · dense",
+        "size_gb": 7,
+        "note": "dense 14B general purpose",
+        "ctx": 32768,
+        "tier": "other",
     },
 }
 
@@ -185,6 +215,12 @@ def detect_active_profile(model_name: str | None) -> str | None:
         return "plan"
     if "qwen3-coder" in name:
         return "coder-old"
+    if "qwen2.5-coder" in name:
+        return "coder-14b"
+    if "qwen3.5-9b" in name:
+        return "qwen35-9b"
+    if "qwen3-14b" in name:
+        return "qwen3-14b"
     return None
 
 

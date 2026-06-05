@@ -85,7 +85,7 @@
       </div>
 
       <div class="grid grid-cols-2 gap-2">
-        <template x-for="(p, key) in profiles" :key="key">
+        <template x-for="(p, key) in defaultProfiles" :key="key">
           <button
             @click="switchTo(key)"
             :disabled="status.switching || status.profile === key"
@@ -106,6 +106,38 @@
             </div>
           </button>
         </template>
+      </div>
+
+      <!-- ── Altri profili (presenti su disco, non daily driver) ── -->
+      <div x-show="Object.keys(otherProfiles).length" class="mt-3">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="caption">Altri</span>
+          <span class="caption text-[var(--color-fg-mute)]">non agentici / sperimentali</span>
+          <span class="rule-x flex-1"></span>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <template x-for="(p, key) in otherProfiles" :key="key">
+            <button
+              @click="switchTo(key)"
+              :disabled="status.switching || status.profile === key"
+              class="profile-btn profile-btn-other"
+              :class="status.profile === key ? 'active' : ''">
+              <div class="flex items-baseline justify-between gap-2">
+                <span class="text-[13.5px] font-medium tracking-tight text-[var(--color-fg-strong)]" x-text="p.label"></span>
+                <span class="mono-num text-[11px] text-[var(--color-fg-mute)]" x-text="String(p.size_gb).padStart(2,'0') + ' GB'"></span>
+              </div>
+              <div class="mt-1 text-[11.5px] text-[var(--color-fg-dim)] leading-snug" x-text="p.note"></div>
+              <div class="mt-2 caption flex items-center gap-2">
+                <span x-text="p.tag"></span>
+                <span x-show="status.switching && status.switching_profile === key"
+                      class="ml-auto flex items-center gap-1 text-[var(--color-warm)]">
+                  <span class="spinner-dot"></span>
+                  <span>LOADING</span>
+                </span>
+              </div>
+            </button>
+          </template>
+        </div>
       </div>
 
       <button @click="stopServer()" :disabled="!status.running" class="btn-danger w-full mt-3">
@@ -202,7 +234,7 @@
 
   <!-- ── Archive rail ── -->
   <aside class="flex flex-col overflow-hidden border-r border-[var(--color-line-soft)]" x-data="conversations()" x-init="init()">
-    <div class="px-4 py-3.5 flex items-center justify-between border-b border-[var(--color-line-soft)]">
+    <div class="px-4 h-[69px] shrink-0 flex items-center justify-between border-b border-[var(--color-line-soft)]">
       <div class="flex items-baseline gap-2">
         <span class="caption">Archive</span>
         <span class="caption-bright"><span class="mono-num" x-text="String(sortedList.length).padStart(2, '0')"></span></span>
@@ -263,7 +295,7 @@
   <main class="flex flex-col overflow-hidden min-w-0" x-data="chat()" x-init="bindStorage()">
 
     <!-- Header -->
-    <header class="px-6 py-3.5 border-b border-[var(--color-line-soft)] flex items-center gap-4">
+    <header class="px-6 h-[69px] shrink-0 border-b border-[var(--color-line-soft)] flex items-center gap-4">
       <div class="flex-1 min-w-0">
         <input type="text"
                x-model="title"

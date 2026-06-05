@@ -49,21 +49,24 @@ open http://127.0.0.1:1230   # control panel + chat
 | `llm-dash --bg` | Dashboard in background |
 | `llm-dash stop` | Ferma dashboard |
 
-Profili disponibili: `build` (GLM-4.7), `coder` (Qwen3.6-35B), `plan` (Qwen3-30B-Instruct), `coder-old` (Qwen3-Coder-30B).
+Profili default: `build` (GLM-4.7), `coder` (Qwen3.6-35B), `plan` (Qwen3-30B-Instruct), `coder-old` (Qwen3-Coder-30B).
+Altri (avviabili, non daily driver): `coder-14b`, `qwen35-9b`, `qwen3-14b`. Lista completa: `make models`.
 
-Vedi `make help` per l'elenco completo.
+Vedi `make help` per l'elenco completo dei comandi.
 
 ## Documentazione
 
 | Documento | Contenuto |
 |---|---|
 | [docs/HARDWARE.md](docs/HARDWARE.md) | M5, RAM unificata, Neural Accelerators, wired_limit |
-| [docs/MODELS.md](docs/MODELS.md) | Catalogo 7 modelli, classifica, benchmark, motivazioni drop |
+| [docs/MODELS.md](docs/MODELS.md) | Catalogo modelli per tier (default / altri), classifica, benchmark |
+| [docs/MODEL_SYNC.md](docs/MODEL_SYNC.md) | Prompt per un LLM che riallinea modelli su disco ↔ config (llm-serve, dash, opencode) |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Decisioni tecniche: mlx_lm vs LM Studio, 1 modello/volta, SSE vs WS |
 | [docs/MEMORY.md](docs/MEMORY.md) | available vs used, KV cache, swap, headroom budgeting |
 | [docs/OPENCODE.md](docs/OPENCODE.md) | Integrazione opencode, provider mlx, agent profiles |
 | [docs/DASHBOARD.md](docs/DASHBOARD.md) | Stack della UI, file structure, come modificare |
 | [docs/RUNBOOK.md](docs/RUNBOOK.md) | Workflow quotidiano, troubleshooting, recovery |
+| [docs/EVALS.md](docs/EVALS.md) | Esperimenti su limiti reali del setup (artifact esterni in `~/Development/Projects/local-llm-eval/`) |
 
 ## Struttura progetto
 
@@ -80,7 +83,8 @@ llm-dash/
 │   ├── MEMORY.md
 │   ├── OPENCODE.md
 │   ├── DASHBOARD.md
-│   └── RUNBOOK.md
+│   ├── RUNBOOK.md
+│   └── EVALS.md             ← writeup esperimenti su limiti agentic reali
 │
 ├── bin/                      ← script (symlinkati a ~/.local/bin/)
 │   ├── llm-serve             ← wrapper mlx_lm.server con profili

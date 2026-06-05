@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # llm-up - avvia un singolo mlx_lm.server in background con il profilo scelto
-# Uso: llm-up [build|coder|plan|coder-old]   default = build
+# Uso: llm-up <profile>   default = build   (lista profili: llm-serve list)
 #
 # Solo 1 modello attivo per volta su 32 GB di RAM.
 # Per cambiare modello usa: llm-switch <profile>

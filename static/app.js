@@ -128,6 +128,18 @@ function dash() {
     mem: {total_gb:32, used_gb:0, percent:0, swap_used_gb:0, swap_total_gb:0, wired_gb:0, available_gb:0, active_gb:0, inactive_gb:0, compressed_gb:0, pressure:'low'},
     profiles: {},
 
+    // Profili splittati per tier: i 4 default vs gli "altri" presenti su disco.
+    get defaultProfiles() {
+      return Object.fromEntries(
+        Object.entries(this.profiles).filter(([, p]) => (p.tier || 'default') === 'default')
+      );
+    },
+    get otherProfiles() {
+      return Object.fromEntries(
+        Object.entries(this.profiles).filter(([, p]) => p.tier === 'other')
+      );
+    },
+
     async poll() {
       const fetchAll = async () => {
         try {
@@ -193,8 +205,8 @@ function dash() {
     },
 
     fitMessage(avail, profile) {
-      const sizes = {build:16, coder:20, plan:17, 'coder-old':16};
-      const need = profile && sizes[profile] ? sizes[profile] : null;
+      const p = (window.__lastProfiles || {})[profile];
+      const need = p ? p.size_gb : null;
       if (!need) return 'RAM riusabile (libera + cache + compressa)';
       const margin = avail - (need + 6); // weights + ~6GB KV cache stima
       if (margin > 4) return `Profile attivo (${need + 6} GB stimati): margine ${margin.toFixed(1)} GB`;
