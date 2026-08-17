@@ -66,7 +66,13 @@ Vedi `make help` per l'elenco completo dei comandi.
 | [docs/OPENCODE.md](docs/OPENCODE.md) | Integrazione opencode, provider mlx, agent profiles |
 | [docs/DASHBOARD.md](docs/DASHBOARD.md) | Stack della UI, file structure, come modificare |
 | [docs/RUNBOOK.md](docs/RUNBOOK.md) | Workflow quotidiano, troubleshooting, recovery |
-| [docs/EVALS.md](docs/EVALS.md) | Esperimenti su limiti reali del setup (artifact esterni in `~/Development/Projects/local-llm-eval/`) |
+| [docs/EVALS.md](docs/EVALS.md) | Esperimenti su limiti reali del setup, con indice dei round |
+
+## Quanto regge davvero questo setup
+
+I limiti di questa configurazione sono stati misurati, non stimati: quali modelli reggono un loop agentico, dove la quantizzazione 4-bit inizia a corrompere l'output, quanto vale un modello locale contro il cloud su un task piccolo. Dati grezzi, scoring e metodo stanno in un repo separato, **[macbook-m5-agentic-coding-eval](https://github.com/essedev/macbook-m5-agentic-coding-eval)**, con il perimetro di validità dichiarato in testa: valgono per scaffold corti, non per refactor multi-file o long-context.
+
+Sintesi dei take-away in [docs/EVALS.md](docs/EVALS.md).
 
 ## Struttura progetto
 
