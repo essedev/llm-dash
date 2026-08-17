@@ -70,7 +70,7 @@ Vedi `make help` per l'elenco completo dei comandi.
 
 ## Quanto regge davvero questo setup
 
-I limiti di questa configurazione sono stati misurati, non stimati: quali modelli reggono un loop agentico, dove la quantizzazione 4-bit inizia a corrompere l'output, quanto vale un modello locale contro il cloud su un task piccolo. Dati grezzi, scoring e metodo stanno in un repo separato, **[macbook-m5-agentic-coding-eval](https://github.com/essedev/macbook-m5-agentic-coding-eval)**, con il perimetro di validità dichiarato in testa: valgono per scaffold corti, non per refactor multi-file o long-context.
+I limiti di questa configurazione sono stati misurati, non stimati: quali modelli reggono un loop agentico, dove la quantizzazione 4-bit inizia a corrompere l'output, quanto vale un modello locale contro il cloud su un task piccolo. Dati grezzi, scoring e metodo stanno in un repo separato, **[local-llm-eval](https://github.com/essedev/local-llm-eval)**, con il perimetro di validità dichiarato in testa: valgono per scaffold corti, non per refactor multi-file o long-context.
 
 Sintesi dei take-away in [docs/EVALS.md](docs/EVALS.md).
 

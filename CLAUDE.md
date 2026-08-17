@@ -45,4 +45,4 @@ Il CSS va ribuildato dopo ogni modifica a `src/input.css`: `pnpm run build`. Non
 | `docs/DASHBOARD.md` | Stack UI, endpoint, streaming, classi CSS |
 | `docs/RUNBOOK.md` | Workflow quotidiano e troubleshooting |
 | `docs/MEMORY.md` | available vs used, KV cache, budget di headroom |
-| [macbook-m5-agentic-coding-eval](https://github.com/essedev/macbook-m5-agentic-coding-eval) | Gli esperimenti che misurano i limiti di questo setup |
+| [local-llm-eval](https://github.com/essedev/local-llm-eval) | Gli esperimenti che misurano i limiti di questo setup |
