@@ -1,4 +1,7 @@
 // llm-dash client logic - Alpine + marked + highlight.js + localStorage
+
+// Distanza dal fondo entro cui la chat resta agganciata alla generazione.
+const STICK_THRESHOLD_PX = 120;
 // Eventi globali: 'conv:select', 'conv:new', 'conv:delete', 'conv:list'
 
 const STORAGE_KEY = 'llmdash:conversations:v1';
@@ -66,27 +69,72 @@ document.addEventListener('alpine:init', () => {
 });
 
 // ---- markdown setup ----
+// marked >= 5 non accetta più l'opzione `highlight` in setOptions: l'evidenziazione
+// si applica al DOM dopo il parse, in enhanceCode().
 function setupMarked() {
   if (typeof window.marked === 'undefined') return;
-  window.marked.setOptions({
-    breaks: true,
-    gfm: true,
-    highlight: function(code, lang) {
-      if (window.hljs && lang && window.hljs.getLanguage(lang)) {
-        try { return window.hljs.highlight(code, {language: lang}).value; } catch (_) {}
-      }
-      if (window.hljs) {
-        try { return window.hljs.highlightAuto(code).value; } catch (_) {}
-      }
-      return code;
-    }
-  });
+  window.marked.setOptions({ breaks: true, gfm: true });
 }
 document.addEventListener('DOMContentLoaded', setupMarked);
 
 function renderMd(text) {
   if (typeof window.marked === 'undefined') return escapeHtml(text);
   try { return window.marked.parse(text || ''); } catch (e) { return escapeHtml(text); }
+}
+
+// Durante lo streaming il testo è markdown a metà: un ``` ancora aperto
+// inghiottirebbe tutto il resto in un blocco di codice, e la risposta sembrerebbe
+// sparita. Chiudo virtualmente i recinti dispari solo per il render.
+function closeOpenFences(text) {
+  const fences = (text.match(/^```/gm) || []).length;
+  return fences % 2 === 1 ? text + '\n```' : text;
+}
+
+function renderMdStream(text) {
+  return renderMd(closeOpenFences(text || ''));
+}
+
+function makeCopyButton(code) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'code-copy';
+  btn.textContent = 'copy';
+  btn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    try {
+      await navigator.clipboard.writeText(code.textContent || '');
+      btn.textContent = 'copied';
+      btn.classList.add('ok');
+    } catch (_) {
+      // Clipboard negata o contesto non sicuro: senza feedback il click sembra rotto.
+      btn.textContent = 'failed';
+      btn.classList.add('err');
+    }
+    setTimeout(() => {
+      btn.textContent = 'copy';
+      btn.classList.remove('ok', 'err');
+    }, 1500);
+  });
+  return btn;
+}
+
+// Evidenziazione + bottone copia sui blocchi di codice già renderizzati.
+// `skipLast` lascia stare il blocco ancora in scrittura: evidenziarlo a ogni token
+// costa e fa sfarfallare i colori su codice sintatticamente incompleto.
+function enhanceCode(root, skipLast) {
+  if (!root) return;
+  const blocks = Array.from(root.querySelectorAll('pre > code'));
+  blocks.forEach((code, i) => {
+    const pre = code.parentElement;
+    if (pre.dataset.enhanced === '1') return;
+    if (skipLast && i === blocks.length - 1) return;
+    pre.dataset.enhanced = '1';
+    pre.classList.add('code-wrap');
+    if (window.hljs) {
+      try { window.hljs.highlightElement(code); } catch (_) {}
+    }
+    pre.appendChild(makeCopyButton(code));
+  });
 }
 
 function escapeHtml(s) {
@@ -225,6 +273,8 @@ function chat() {
     input: '',
     streaming: false,
     streamBuf: '',
+    streamHtml: '',
+    stuck: true,
     lastStats: {tps:null, tokens:0, elapsed:0},
     lastUsage: {prompt_tokens:0, completion_tokens:0},
     status_running: false,
@@ -232,12 +282,14 @@ function chat() {
     status_switching_profile: null,
     _ctxLimit: 0,
     _scrollPending: false,
+    _renderPending: false,
     _abort: null,
     _discardStream: false,
 
     bindStorage() {
       // load current conversation on init and listen for conv:select
       this.currentId = getCurrentId();
+      this._bindScroll();
       this._loadCurrent();
       window.addEventListener('conv:select', (e) => {
         this._abortAndDiscard();
@@ -280,7 +332,11 @@ function chat() {
       this.title = c.title || '';
       this.messages = (c.messages || []).slice();
       this.lastUsage = {prompt_tokens:0, completion_tokens:0};
-      this.$nextTick(() => this._scrollBottom());
+      this.$nextTick(() => {
+        this.stuck = true;
+        this._scrollBottom(true);
+        enhanceCode(this.$refs.msgs);
+      });
     },
 
     persist() {
@@ -301,21 +357,52 @@ function chat() {
       window.dispatchEvent(new CustomEvent('conv:list'));
     },
 
-    renderMd, escapeHtml,
+    renderMd, renderMdStream, escapeHtml, enhanceCode,
 
-    _scrollBottom() {
+    // Aggancio al fondo: seguo la generazione finché l'utente resta entro la soglia.
+    // Se scrolla più su mi sgancio e smetto di trascinarlo giù; quando rientra
+    // nella soglia si riaggancia da solo. Lo scroll programmatico atterra a
+    // distanza ~0, quindi non si sgancia da sé.
+    _bindScroll() {
+      const el = this.$refs.msgs;
+      if (!el) return;
+      el.addEventListener('scroll', () => {
+        const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+        this.stuck = distance < STICK_THRESHOLD_PX;
+      }, {passive: true});
+    },
+
+    _scrollBottom(force) {
       if (!this.$refs.msgs) return;
+      if (!force && !this.stuck) return;
       this.$refs.msgs.scrollTop = this.$refs.msgs.scrollHeight;
     },
 
-    _scheduleScroll() {
+    jumpToBottom() {
+      this.stuck = true;
+      this._scrollBottom(true);
+    },
+
+    _scheduleScroll(force) {
       if (this._scrollPending) return;
       this._scrollPending = true;
       this.$nextTick(() => {
         requestAnimationFrame(() => {
           this._scrollPending = false;
-          this._scrollBottom();
+          this._scrollBottom(force);
         });
+      });
+    },
+
+    // Il markdown del testo in arrivo si riparsa al massimo una volta per frame:
+    // i token che arrivano in raffica collassano in un solo render.
+    _scheduleRender() {
+      if (this._renderPending) return;
+      this._renderPending = true;
+      requestAnimationFrame(() => {
+        this._renderPending = false;
+        this.streamHtml = renderMdStream(this.streamBuf);
+        this.$nextTick(() => enhanceCode(this.$refs.streamBox, true));
       });
     },
 
@@ -326,10 +413,13 @@ function chat() {
       this.messages.push({role:'user', content:text});
       this.input = '';
       this.streamBuf = '';
+      this.streamHtml = '';
       this.streaming = true;
       this._abort = new AbortController();
       this.persist();
-      this._scheduleScroll();
+      // Un invio nuovo riporta l'utente al fondo anche se stava leggendo più su.
+      this.stuck = true;
+      this._scheduleScroll(true);
 
       try {
         const resp = await fetch('/api/chat', {
@@ -364,6 +454,7 @@ function chat() {
           this.streaming = false;
           this._abort = null;
           this.streamBuf = '';
+          this.streamHtml = '';
           this._discardStream = false;
           return;
         }
@@ -414,6 +505,7 @@ function chat() {
       }
       if (event === 'token') {
         this.streamBuf += data;
+        this._scheduleRender();
         this._scheduleScroll();
       } else if (event === 'done') {
         try {
@@ -434,10 +526,14 @@ function chat() {
     flush() {
       if (this.streamBuf) this.messages.push({role:'assistant', content: this.streamBuf});
       this.streamBuf = '';
+      this.streamHtml = '';
       this.streaming = false;
       this._abort = null;
       this.persist();
       this._scheduleScroll();
+      // Il messaggio appena chiuso è ora un blocco normale: evidenzia anche
+      // l'ultimo recinto di codice, che durante lo streaming era stato saltato.
+      this.$nextTick(() => enhanceCode(this.$refs.msgs));
     },
 
     // Token count: usa il valore reale dell'ultimo round-trip se disponibile,

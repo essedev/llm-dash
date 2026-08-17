@@ -431,6 +431,86 @@
     margin: 1em 0;
   }
 
+  /* Il tema di highlight.js porta il proprio sfondo: qui vince il pre della palette. */
+  .markdown-body pre code.hljs {
+    background: transparent;
+    padding: 0;
+  }
+
+  /* Cursore attaccato all'ultimo elemento generato, non su una riga sua. */
+  .markdown-body.streaming > *:last-child::after {
+    content: '▌';
+    color: var(--color-accent);
+    margin-left: 2px;
+    animation: cursor-blink 1s step-end infinite;
+  }
+
+  /* ─── Blocchi di codice copiabili ─── */
+  .markdown-body pre.code-wrap {
+    position: relative;
+  }
+  .code-copy {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 3px;
+    border: 1px solid var(--color-line);
+    background: var(--color-surface-2);
+    color: var(--color-fg-mute);
+    opacity: 0.35;
+    transition: opacity 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+    cursor: pointer;
+  }
+  .markdown-body pre.code-wrap:hover .code-copy,
+  .code-copy:focus-visible {
+    opacity: 1;
+  }
+  .code-copy:hover {
+    color: var(--color-accent);
+    border-color: var(--color-accent-dim);
+  }
+  .code-copy.ok {
+    opacity: 1;
+    color: var(--color-accent);
+    border-color: var(--color-accent-dim);
+  }
+  .code-copy.err {
+    opacity: 1;
+    color: var(--color-crit);
+    border-color: var(--color-crit);
+  }
+
+  /* ─── Ritorno al fondo ─── */
+  .jump-bottom {
+    position: absolute;
+    bottom: 92px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--color-line);
+    background: var(--color-surface-2);
+    color: var(--color-fg-dim);
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    box-shadow: 0 6px 20px rgb(0 0 0 / 0.45);
+    cursor: pointer;
+    z-index: 20;
+    transition: color 0.12s ease, border-color 0.12s ease;
+  }
+  .jump-bottom:hover {
+    color: var(--color-accent);
+    border-color: var(--color-accent-dim);
+  }
+
   /* ─── Buttons ─── */
   .btn-ghost {
     font-family: var(--font-mono);

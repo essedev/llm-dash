@@ -292,7 +292,7 @@
   </aside>
 
   <!-- ── Chat ── -->
-  <main class="flex flex-col overflow-hidden min-w-0" x-data="chat()" x-init="bindStorage()">
+  <main class="relative flex flex-col overflow-hidden min-w-0" x-data="chat()" x-init="bindStorage()">
 
     <!-- Header -->
     <header class="px-6 h-[69px] shrink-0 border-b border-[var(--color-line-soft)] flex items-center gap-4">
@@ -354,7 +354,9 @@
           <template x-if="m.role === 'assistant'">
             <div class="max-w-[88%]">
               <div class="bubble-asst-tag">Assistant</div>
-              <div class="bubble-asst markdown-body" x-html="renderMd(m.content)"></div>
+              <div class="bubble-asst markdown-body"
+                   x-html="renderMd(m.content)"
+                   x-init="$nextTick(() => enhanceCode($el))"></div>
             </div>
           </template>
         </div>
@@ -365,7 +367,7 @@
           <div class="bubble-asst-tag" x-text="streamBuf ? 'Assistant' : 'Routing prompt'">Assistant</div>
           <div class="bubble-asst">
             <template x-if="streamBuf">
-              <div class="stream-text"><span x-text="streamBuf"></span><span class="cursor-blink">▌</span></div>
+              <div class="markdown-body streaming" x-ref="streamBox" x-html="streamHtml"></div>
             </template>
             <template x-if="!streamBuf">
               <div class="typing-dots"><span></span><span></span><span></span></div>
@@ -394,6 +396,16 @@
         </div>
       </div>
     </div>
+
+    <!-- Torna al fondo: appare solo quando l'utente si è sganciato dalla generazione -->
+    <button type="button"
+            x-show="!stuck && messages.length"
+            x-transition.opacity
+            @click="jumpToBottom()"
+            class="jump-bottom">
+      <span class="font-mono">↓</span>
+      <span x-text="streaming ? 'Segui la generazione' : 'Vai in fondo'">Vai in fondo</span>
+    </button>
 
     <!-- Composer -->
     <form @submit.prevent="streaming ? stopGen() : send()" class="border-t border-[var(--color-line-soft)] p-4 flex gap-3 items-center">
