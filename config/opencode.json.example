@@ -45,6 +45,10 @@
         "/Users/doppia/.lmstudio/models/Qwen/Qwen3-14B-MLX-4bit": {
           "name": "Qwen3-14B (altri - dense)",
           "limit": { "context": 32768, "output": 8192 }
+        },
+        "/Users/doppia/.lmstudio/models/lmstudio-community/Qwen3.8-27B-MLX-4bit": {
+          "name": "Qwen3.8-27B (altri - dense, ~7 t/s)",
+          "limit": { "context": 65536, "output": 8192 }
         }
       }
     }
