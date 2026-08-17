@@ -85,6 +85,14 @@ PROFILES: dict[str, dict[str, Any]] = {
         "ctx": 32768,
         "tier": "other",
     },
+    "qwen38": {
+        "label": "Qwen3.8-27B",
+        "tag": "altri · dense",
+        "size_gb": 15,
+        "note": "tool calling ok, ~7 t/s: no daily driver agentico",
+        "ctx": 262144,
+        "tier": "other",
+    },
 }
 
 LOG_RING: deque[str] = deque(maxlen=200)
@@ -209,6 +217,8 @@ def detect_active_profile(model_name: str | None) -> str | None:
     name = model_name.lower()
     if "glm-4.7" in name:
         return "build"
+    if "qwen3.8" in name:
+        return "qwen38"
     if "qwen3.6" in name or "qwen3_5" in name:
         return "coder"
     if "qwen3-30b-a3b-instruct" in name:
