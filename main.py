@@ -185,20 +185,30 @@ def memory_snapshot() -> dict[str, float]:
     }
 
 
-async def fetch_active_model() -> str | None:
-    try:
-        async with httpx.AsyncClient(timeout=1.0) as c:
-            r = await c.get(f"{LLM_BASE}/models")
-            r.raise_for_status()
-            data = r.json().get("data", [])
-            if data:
-                return Path(data[0]["id"]).name
-    except (httpx.HTTPError, ValueError, KeyError):
-        return None
+def served_model_path() -> str | None:
+    """Modello effettivamente servito, letto dal --model del processo.
+
+    /v1/models elenca tutti i modelli che mlx_lm.server trova in cache, non
+    solo quello caricato, quindi data[0] non è affidabile.
+    """
+    for proc in psutil.process_iter(["cmdline"]):
+        try:
+            cmd = proc.info["cmdline"] or []
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+        if not any("mlx_lm.server" in part for part in cmd):
+            continue
+        if "--model" in cmd:
+            idx = cmd.index("--model")
+            if idx + 1 < len(cmd):
+                return cmd[idx + 1]
     return None
 
 
 async def fetch_active_full_path() -> str | None:
+    served = served_model_path()
+    if served:
+        return served
     try:
         async with httpx.AsyncClient(timeout=1.0) as c:
             r = await c.get(f"{LLM_BASE}/models")
@@ -209,6 +219,11 @@ async def fetch_active_full_path() -> str | None:
     except (httpx.HTTPError, ValueError, KeyError):
         return None
     return None
+
+
+async def fetch_active_model() -> str | None:
+    full = await fetch_active_full_path()
+    return Path(full).name if full else None
 
 
 def detect_active_profile(model_name: str | None) -> str | None:
