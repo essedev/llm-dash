@@ -23,8 +23,8 @@ Tutte gestite via `uv`, vedi `pyproject.toml`.
 |---|---|---|
 | Tailwind v4 buildato | `pnpm run build` (CLI nativa) | utility CSS, output `static/output.css` |
 | Alpine.js 3.14 | asset statico `/static/alpine.min.js` | reattività, state management |
-| marked.js | asset statico | render markdown |
-| highlight.js | asset statico | syntax highlighting code blocks |
+| marked.js 15 | asset statico | render markdown |
+| highlight.js 11 | asset statico | syntax highlighting, applicato al DOM dopo il parse (marked >= 5 non accetta più l'opzione `highlight` in `setOptions`: passarla lì è codice morto e i blocchi restano senza colore) |
 | Geist + JetBrains Mono | Google Fonts CDN | tipografia |
 
 Niente React, niente Vite, niente bundler JS. Si edita `index.html` o `app.js` e si refresha il browser.
@@ -129,6 +129,28 @@ while (true) {
 
 Ogni token arriva immediatamente. Visualizzazione progressiva, scrolling con `$nextTick + requestAnimationFrame` per allineare DOM Alpine + scroll.
 
+**Render markdown durante lo streaming**: il testo in arrivo viene parsato a ogni frame
+(`_scheduleRender`), non tenuto come testo plain fino a `done`. Due accorgimenti che
+servono entrambi:
+
+- `closeOpenFences()` chiude i recinti ``` dispari solo ai fini del render. Senza, un
+  blocco di codice ancora aperto inghiotte tutto il resto della risposta e all'utente
+  sembra che il testo sia sparito.
+- L'evidenziazione salta l'ultimo blocco finché la generazione è in corso
+  (`enhanceCode(root, skipLast)`): ri-evidenziare a ogni token codice sintatticamente
+  incompleto costa e fa lampeggiare i colori. Alla chiusura del messaggio viene
+  evidenziato anche quello.
+
+Il parse è limitato a uno per frame, quindi i token che arrivano in raffica collassano
+in un render solo.
+
+**Aggancio al fondo**: la chat segue la generazione solo finché l'utente resta entro
+`STICK_THRESHOLD_PX` (120px) dal fondo. Sopra quella distanza l'aggancio si stacca e lo
+streaming non trascina più la vista; rientrando nella soglia si riaggancia da solo, e
+compare il pulsante `.jump-bottom` per tornare giù subito. Lo scroll programmatico è
+istantaneo di proposito: `smooth` genererebbe eventi di scroll intermedi che sganciano
+l'aggancio da soli.
+
 **Gotcha 1 - separator CRLF**: `sse_starlette` separa gli eventi con `\r\n\r\n`. Senza la `replace(/\r\n/g, '\n')` il parser non trova mai il delimitatore e gli eventi vengono scartati silenziosamente.
 
 **Gotcha 2 - data multi-line**: quando il content del modello contiene `\n` (code block, paragrafi), `sse_starlette` splitta il dato in più righe `data:`. Per spec SSE le righe `data:` consecutive vanno concatenate con `\n` separator. Senza questo fix le newline spariscono ("def foo():" e "    return x" si fondono in "def foo():    return x"):
@@ -220,7 +242,9 @@ Vedi `src/input.css` per i token CSS completi.
 | `.pressure-badge` | pill low/medium/high per la pressione memoria |
 | `.dot-legend` | quadratino legenda per la stack-meter |
 | `.bubble-user` / `.bubble-asst` | bubble chat |
-| `.stream-text` | testo plain pre-wrap durante streaming (markdown solo a `done`) |
+| `.markdown-body.streaming` | risposta in corso, renderizzata come markdown; il cursore è un `::after` sull'ultimo elemento, così resta in linea col testo invece di andare a capo |
+| `.code-copy` | bottone copia sul blocco di codice (opacity 0.35 → 1 in hover, stati `.ok` / `.err` per 1,5s) |
+| `.jump-bottom` | pill flottante "torna in fondo", visibile solo quando l'aggancio si è staccato |
 | `.btn-accent` | call-to-action lime (Transmit) - flex-center, min-width per evitare jump fra label diverse |
 | `.btn-stop` | bottone Stop streaming - outline crit con `.stop-square` glyph + glow rossa |
 | `.btn-crit` | filled critical (CTA distruttiva nei dialog confirm) |

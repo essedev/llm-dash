@@ -24,6 +24,7 @@ Avviabili dove ha senso, ma fuori dai 4 default per i motivi sotto. I primi 3 so
 | `coder-14b` | `lmstudio-community/Qwen2.5-Coder-14B-Instruct-MLX-4bit` | 8 GB | `mlx_lm.server` non parsa i suoi tool: niente agentic, solo chat |
 | `qwen35-9b` | `mlx-community/Qwen3.5-9B-MLX-4bit` | 6 GB | Sotto i 16 GB = floor agentic affidabile su questo setup |
 | `qwen3-14b` | `Qwen/Qwen3-14B-MLX-4bit` | 7 GB | Dense 14B general purpose, non agentic-tuned |
+| `qwen38` | `lmstudio-community/Qwen3.8-27B-MLX-4bit` | 15 GB | Dense 27B: tool calling ok, ma 7,1 t/s misurati (vedi sotto) |
 | - | `lmstudio-community/Qwen3-VL-30B-A3B-Instruct-MLX-4bit` | 17 GB | Vision (screenshot/UI): non avviato come profilo testo |
 | - | `unsloth/gemma-4-E4B-it-GGUF` | 6.3 GB | GGUF: `mlx_lm.server` carica solo MLX, qui non è servibile (inline via LM Studio) |
 | - | `text-embedding-nomic-embed-text-v1.5` | 84 MB | Embedding, gestito da LM Studio |
@@ -104,6 +105,28 @@ Stesso prompt (fibonacci + pytest), max_tokens 500, temp 0, mlx_lm.server porta 
 | Qwen3-Coder-30B 2025 | 11.7s | **37.7 t/s** | Cache disco già letta |
 | GLM-4.7-Flash | 17.9s | **32.0 t/s** | Cold da disco |
 | Qwen3.6-35B-UD | 32.9s | 10.5 t/s (memory pressure) → **27.2 t/s** (warm + wired_limit) | Quantization "UD" leggermente più lenta |
+| Qwen3.8-27B (dense) | 68s | **7,1 t/s** | Misura con 6,9 GB liberi; tetto teorico ~9-10 |
+
+### Perché Qwen3.8-27B non è un profilo default (2026-08-15)
+
+È l'unico dense della lista, e su questo hardware la differenza con i MoE non è marginale.
+Un A3B attiva 3B di parametri per token, un dense 27B rilegge tutti i 15 GB di pesi: il
+throughput lo detta la banda di memoria, non la GPU. I 7,1 t/s misurati corrispondono a
+~107 GB/s effettivi, cioè il modello sta già girando vicino al suo tetto fisico: liberare
+RAM non lo porta oltre ~9-10 t/s, e scendere a 3-bit non cambierebbe categoria d'uso.
+
+Le due incognite sollevate al download sono cadute entrambe:
+
+- **Carica su `mlx_lm.server`** benché sia un VL nativo (`Qwen3_5ForConditionalGeneration`,
+  convertito con mlx-vlm). `mlx_lm/models/qwen3_5.py` scarta i pesi `vision_tower` e
+  `model.visual` e costruisce solo la torre testuale. Niente mlx-vlm, niente upgrade di mlx-lm.
+- **Tool call parsati nativamente**: `finish_reason: tool_calls` con argomenti JSON validi,
+  su mlx-lm 0.31.3 senza modifiche.
+
+Uso pratico: domande singole dove la qualità per token ripaga l'attesa (review, refactor
+ragionato), non loop agentici. Su un loop da 30 tool call la differenza con `build` è tra
+5 e 25 minuti. Non esistono conversioni MLX text-only né 3-bit MLX di questo modello: il
+3-bit di Unsloth è solo GGUF, quindi fuori da `mlx_lm.server`.
 
 **Insight chiave**: la quantization "UD" (Unsloth Dynamic) di Qwen3.6 ha un piccolo overhead vs il 4-bit standard di lmstudio-community. Per sostituire con `mlx-community/Qwen3.6-35B-A3B-4bit` (non UD) servirebbero +18 GB di download, da considerare se i 27 t/s non bastano.
 

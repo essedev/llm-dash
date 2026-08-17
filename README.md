@@ -12,7 +12,7 @@ Piattaforma personale per gestire LLM locali su Apple Silicon - control plane + 
 ## In sintesi
 
 - **Runtime backend**: `mlx_lm.server` (Apple MLX nativo, ~32 t/s su MoE 4-bit)
-- **Modelli core**: GLM-4.7-Flash, Qwen3.6-35B-A3B, Qwen3-30B-Instruct, Qwen3-Coder-30B
+- **Modelli core**: GLM-4.7-Flash, Qwen3.6-35B-A3B, Qwen3-30B-Instruct, Qwen3-Coder-30B (tutti MoE; il dense Qwen3.8-27B è avviabile ma sta fuori dai default, vedi [docs/MODELS.md](docs/MODELS.md))
 - **Frontend agent**: opencode (CLI agentic)
 - **UI web**: dashboard FastAPI + Tailwind v4 + Alpine.js (porta 1230)
 - **1 modello attivo per volta** (32 GB non bastano per 2 MoE da 16+ GB)
@@ -50,7 +50,7 @@ open http://127.0.0.1:1230   # control panel + chat
 | `llm-dash stop` | Ferma dashboard |
 
 Profili default: `build` (GLM-4.7), `coder` (Qwen3.6-35B), `plan` (Qwen3-30B-Instruct), `coder-old` (Qwen3-Coder-30B).
-Altri (avviabili, non daily driver): `coder-14b`, `qwen35-9b`, `qwen3-14b`. Lista completa: `make models`.
+Altri (avviabili, non daily driver): `coder-14b`, `qwen35-9b`, `qwen3-14b`, `qwen38`. Lista completa: `make models`.
 
 Vedi `make help` per l'elenco completo dei comandi.
 
