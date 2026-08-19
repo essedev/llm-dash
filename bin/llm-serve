@@ -2,101 +2,40 @@
 # llm-serve - avvia mlx_lm.server con un modello scelto
 #
 # Uso:
-#   llm-serve <profile>         avvia il server in foreground sulla porta del profile
+#   llm-serve <profile>         avvia il server in foreground
+#   llm-serve list              elenca i profili
 #
-# Profili e porte di default (tutti su 1234: 1 modello attivo per volta):
-#   build    -> GLM-4.7-Flash             (porta 1234) - default opencode
-#   coder    -> Qwen3.6-35B-A3B-UD-MLX   (porta 1234) - alternativa build
-#   plan     -> Qwen3-30B-A3B-Instruct    (porta 1234) - default planner
-#   coder-old-> Qwen3-Coder-30B           (porta 1234) - fallback fast
-#
-# Lista profili:  llm-serve list
+# I profili sono definiti in config/llm-dash.toml (single source of truth).
 # Override: PORT=N llm-serve <profile>    THINK=true llm-serve <profile>
 
 set -euo pipefail
 
+# Resolve symlink to find _config.py in the same directory
+SCRIPT_DIR="$(python3 -c 'import os,sys; print(os.path.dirname(os.path.realpath(sys.argv[1])))' "${BASH_SOURCE[0]}")"
+CONFIG_HELPER="$SCRIPT_DIR/_config.py"
+
 PROFILE="${1:-build}"
-THINK="${THINK:-false}"
-MODELS_DIR="$HOME/.lmstudio/models"
 
-print_profiles() {
-  cat <<'EOF'
-Profili avviabili (llm-up <profile> / llm-switch <profile>):
-
-  default (MoE agentici, tool calling parsato da mlx_lm.server):
-    build      GLM-4.7-Flash             agentic, tool calling, ~32 t/s   [default opencode]
-    coder      Qwen3.6-35B-A3B-UD        deeper coding, SWE-bench 73.4%, ~25-27 t/s
-    plan       Qwen3-30B-Instruct-2507   reasoning + planning
-    coder-old  Qwen3-Coder-30B           fast fallback, ~37 t/s
-
-  altri (avviabili, ma non daily driver agentici - vedi docs/MODELS.md):
-    coder-14b  Qwen2.5-Coder-14B         coder denso; mlx_lm NON ne parsa i tool
-    qwen35-9b  Qwen3.5-9B                leggero, sotto la soglia agentic affidabile
-    qwen3-14b  Qwen3-14B                 dense 14B general purpose
-    qwen38     Qwen3.8-27B               dense 27B, tool calling ok ma ~7 t/s
-
-Tutti girano sulla porta 1234 (1 modello attivo per volta su 32 GB).
-EOF
-}
-
-CHAT_ARGS=""
 case "$PROFILE" in
   list|ls|--list|-l)
-    print_profiles
+    python3 "$CONFIG_HELPER" list
     exit 0
-    ;;
-  build|glm)
-    MODEL="$MODELS_DIR/lmstudio-community/GLM-4.7-Flash-MLX-4bit"
-    DEFAULT_PORT=1234
-    CHAT_ARGS='{"enable_thinking":'"$THINK"'}'
-    ;;
-  coder)
-    MODEL="$MODELS_DIR/unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit"
-    DEFAULT_PORT=1234
-    CHAT_ARGS='{"enable_thinking":'"$THINK"'}'
-    ;;
-  plan|planner)
-    MODEL="$MODELS_DIR/lmstudio-community/Qwen3-30B-A3B-Instruct-2507-MLX-4bit"
-    DEFAULT_PORT=1234
-    ;;
-  coder-old)
-    MODEL="$MODELS_DIR/lmstudio-community/Qwen3-Coder-30B-A3B-Instruct-MLX-4bit"
-    DEFAULT_PORT=1234
-    ;;
-  coder-14b)
-    MODEL="$MODELS_DIR/lmstudio-community/Qwen2.5-Coder-14B-Instruct-MLX-4bit"
-    DEFAULT_PORT=1234
-    ;;
-  qwen35-9b)
-    MODEL="$MODELS_DIR/mlx-community/Qwen3.5-9B-MLX-4bit"
-    DEFAULT_PORT=1234
-    ;;
-  qwen3-14b)
-    MODEL="$MODELS_DIR/Qwen/Qwen3-14B-MLX-4bit"
-    DEFAULT_PORT=1234
-    ;;
-  qwen38)
-    MODEL="$MODELS_DIR/lmstudio-community/Qwen3.8-27B-MLX-4bit"
-    DEFAULT_PORT=1234
-    CHAT_ARGS='{"enable_thinking":'"$THINK"'}'
-    ;;
-  *)
-    echo "profilo sconosciuto: $PROFILE" >&2
-    echo "" >&2
-    print_profiles >&2
-    echo "" >&2
-    echo "env: PORT=N  THINK=true|false (default false)" >&2
-    exit 1
     ;;
 esac
 
-PORT="${PORT:-$DEFAULT_PORT}"
+# Read profile config from TOML (outputs MODEL=, LABEL=, NOTE=, CHAT_ARGS=, PORT=)
+# Save user PORT override before eval clobbers it
+_USER_PORT="${PORT:-}"
+PROFILE_CONFIG="$(python3 "$CONFIG_HELPER" profile "$PROFILE")" || exit 1
+eval "$PROFILE_CONFIG"
+PORT="${_USER_PORT:-$PORT}"
 
 if [[ ! -d "$MODEL" ]]; then
   echo "ERROR: modello non trovato in $MODEL" >&2
   exit 1
 fi
 
+THINK="${THINK:-false}"
 echo ">>> Profile:  $PROFILE"
 echo ">>> Model:    $(basename "$MODEL")"
 echo ">>> Port:     $PORT"

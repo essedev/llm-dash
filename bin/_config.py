@@ -1,0 +1,118 @@
+#!/usr/bin/env python3
+"""Internal helper: read config/llm-dash.toml for use in bash scripts.
+
+Usage:
+  _config.py list                  elenca i profili per tier
+  _config.py profile <name>        outputta MODEL=, LABEL=, NOTE=, CHAT_ARGS=, PORT=
+  _config.py server <field>        outputta un valore da [server]
+"""
+from __future__ import annotations
+
+import json
+import os
+import sys
+import tomllib
+from pathlib import Path
+
+CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "llm-dash.toml"
+
+
+def _load() -> dict:
+    if not CONFIG_PATH.exists():
+        print(f"ERROR: {CONFIG_PATH} non trovato", file=sys.stderr)
+        sys.exit(1)
+    with open(CONFIG_PATH, "rb") as f:
+        return tomllib.load(f)
+
+
+def _sq(s: str) -> str:
+    """Single-quote for safe bash eval. Handles embedded single quotes."""
+    return "'" + s.replace("'", "'\\''") + "'"
+
+
+def cmd_list() -> None:
+    cfg = _load()
+    profiles = cfg.get("profiles", {})
+    port = cfg["server"]["llm_port"]
+    models_dir = os.path.expanduser(cfg["server"]["models_dir"])
+
+    defaults = {k: v for k, v in profiles.items() if v.get("tier") == "default"}
+    others = {k: v for k, v in profiles.items() if v.get("tier") != "default"}
+
+    print("Profili avviabili (llm-up <profile> / llm-switch <profile>):")
+    print()
+    if defaults:
+        print("  default (MoE agentici, tool calling parsato da mlx_lm.server):")
+        for key, p in defaults.items():
+            print(f"    {key:<12} {p['label']:<30} {p.get('note', '')}")
+    if others:
+        print()
+        print("  altri (avviabili, ma non daily driver agentici - vedi docs/MODELS.md):")
+        for key, p in others.items():
+            print(f"    {key:<12} {p['label']:<30} {p.get('note', '')}")
+    print()
+    print(f"Tutti girano sulla porta {port} (1 modello attivo per volta).")
+    print(f"Model store: {models_dir}")
+
+
+def cmd_profile(name: str) -> None:
+    cfg = _load()
+    profiles = cfg.get("profiles", {})
+
+    if name not in profiles:
+        available = ", ".join(sorted(profiles.keys()))
+        print(f"ERROR: profilo '{name}' non trovato", file=sys.stderr)
+        print(f"Profili disponibili: {available}", file=sys.stderr)
+        sys.exit(1)
+
+    p = profiles[name]
+    models_dir = os.path.expanduser(cfg["server"]["models_dir"])
+    model_path = os.path.join(models_dir, p["path"])
+
+    print(f"MODEL={_sq(model_path)}")
+    print(f"LABEL={_sq(p['label'])}")
+    print(f"NOTE={_sq(p.get('note', ''))}")
+
+    chat_args = dict(p.get("chat_template_args", {}))
+    if "enable_thinking" in chat_args:
+        chat_args["enable_thinking"] = os.environ.get("THINK", "false").lower() == "true"
+    if chat_args:
+        print(f"CHAT_ARGS={_sq(json.dumps(chat_args))}")
+    else:
+        print("CHAT_ARGS=''")
+
+    print(f"PORT={cfg['server']['llm_port']}")
+
+
+def cmd_server(field: str) -> None:
+    cfg = _load()
+    server = cfg.get("server", {})
+    if field not in server:
+        print(f"ERROR: campo '{field}' non trovato in [server]", file=sys.stderr)
+        sys.exit(1)
+    val = server[field]
+    if isinstance(val, str):
+        val = os.path.expanduser(val)
+    print(val)
+
+
+def main() -> None:
+    if len(sys.argv) < 2:
+        print(__doc__, file=sys.stderr)
+        sys.exit(1)
+
+    cmd = sys.argv[1]
+    if cmd == "list":
+        cmd_list()
+    elif cmd == "profile" and len(sys.argv) >= 3:
+        cmd_profile(sys.argv[2])
+    elif cmd == "server" and len(sys.argv) >= 3:
+        cmd_server(sys.argv[2])
+    else:
+        print(f"Usage: {Path(sys.argv[0]).name} <list|profile <name>|server <field>>",
+              file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
