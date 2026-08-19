@@ -1,0 +1,100 @@
+# llm-dash.toml - single source of truth per profili e config server.
+# Letto da: bin/llm-serve (via bin/_config.py), main.py (via tomllib).
+# Per aggiungere/rimuovere un modello: edita questo file, poi segui docs/MODEL_SYNC.md.
+
+[server]
+llm_port = 1234
+dash_port = 1230
+models_dir = "~/.lmstudio/models"
+wired_limit_mb = 28000
+
+[hardware]
+pressure_high_percent = 88
+pressure_medium_percent = 72
+swap_high_gb = 8
+swap_medium_gb = 2
+
+# --- default: MoE agentici, tool calling parsato da mlx_lm.server ---
+
+[profiles.build]
+label = "GLM-4.7-Flash"
+tag = "build (default)"
+path = "lmstudio-community/GLM-4.7-Flash-MLX-4bit"
+size_gb = 16
+ctx = 65536
+tier = "default"
+note = "agentic, tool calling, ~32 t/s"
+
+[profiles.build.chat_template_args]
+enable_thinking = false
+
+[profiles.coder]
+label = "Qwen3.6-35B-A3B-UD"
+tag = "deeper coding"
+path = "unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit"
+size_gb = 20
+ctx = 65536
+tier = "default"
+note = "SWE-bench 73.4%, ~25-27 t/s"
+
+[profiles.coder.chat_template_args]
+enable_thinking = false
+
+[profiles.plan]
+label = "Qwen3-30B-Instruct-2507"
+tag = "planner"
+path = "lmstudio-community/Qwen3-30B-A3B-Instruct-2507-MLX-4bit"
+size_gb = 17
+ctx = 65536
+tier = "default"
+note = "reasoning + planning"
+
+[profiles.coder-old]
+label = "Qwen3-Coder-30B (2025)"
+tag = "fast fallback"
+path = "lmstudio-community/Qwen3-Coder-30B-A3B-Instruct-MLX-4bit"
+size_gb = 16
+ctx = 65536
+tier = "default"
+note = "~37 t/s"
+
+# --- altri: avviabili, non daily driver agentici (vedi docs/MODELS.md) ---
+
+[profiles.coder-14b]
+label = "Qwen2.5-Coder-14B"
+tag = "altri · no tool calling"
+path = "lmstudio-community/Qwen2.5-Coder-14B-Instruct-MLX-4bit"
+size_gb = 8
+ctx = 32768
+tier = "other"
+note = "coder denso; mlx_lm non parsa i suoi tool"
+
+[profiles.qwen35-9b]
+label = "Qwen3.5-9B"
+tag = "altri · piccolo"
+path = "mlx-community/Qwen3.5-9B-MLX-4bit"
+size_gb = 6
+ctx = 32768
+tier = "other"
+note = "leggero, sotto la soglia agentic affidabile"
+
+[profiles.qwen3-14b]
+label = "Qwen3-14B"
+tag = "altri · dense"
+path = "Qwen/Qwen3-14B-MLX-4bit"
+size_gb = 7
+ctx = 32768
+tier = "other"
+note = "dense 14B general purpose"
+
+[profiles.qwen38]
+label = "Qwen3.8-27B"
+tag = "altri · dense"
+path = "lmstudio-community/Qwen3.8-27B-MLX-4bit"
+size_gb = 15
+ctx = 262144
+tier = "other"
+note = "tool calling ok, ~7 t/s: no daily driver agentico"
+
+[profiles.qwen38.chat_template_args]
+enable_thinking = false
