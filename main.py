@@ -8,6 +8,7 @@ import os
 import re
 import subprocess
 import time
+import tomllib
 from collections import deque
 from pathlib import Path
 from typing import Any
@@ -20,80 +21,17 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sse_starlette.sse import EventSourceResponse
 
-DASH_PORT = int(os.environ.get("DASH_PORT", "1230"))
-LLM_PORT = 1234
-LLM_BASE = f"http://127.0.0.1:{LLM_PORT}/v1"
-
 BASE_DIR = Path(__file__).parent
 
-PROFILES: dict[str, dict[str, Any]] = {
-    # --- default: MoE agentici >=16 GB, tool calling parsato da mlx_lm.server ---
-    "build": {
-        "label": "GLM-4.7-Flash",
-        "tag": "build (default)",
-        "size_gb": 16,
-        "note": "agentic, tool calling, ~32 t/s",
-        "ctx": 65536,
-        "tier": "default",
-    },
-    "coder": {
-        "label": "Qwen3.6-35B-A3B-UD",
-        "tag": "deeper coding",
-        "size_gb": 20,
-        "note": "SWE-bench 73.4%, ~25-27 t/s",
-        "ctx": 65536,
-        "tier": "default",
-    },
-    "plan": {
-        "label": "Qwen3-30B-Instruct-2507",
-        "tag": "planner",
-        "size_gb": 17,
-        "note": "reasoning + planning",
-        "ctx": 65536,
-        "tier": "default",
-    },
-    "coder-old": {
-        "label": "Qwen3-Coder-30B (2025)",
-        "tag": "fast fallback",
-        "size_gb": 16,
-        "note": "~37 t/s",
-        "ctx": 65536,
-        "tier": "default",
-    },
-    # --- altri: presenti su disco, non daily driver agentici (vedi docs/MODELS.md) ---
-    "coder-14b": {
-        "label": "Qwen2.5-Coder-14B",
-        "tag": "altri · no tool calling",
-        "size_gb": 8,
-        "note": "coder denso; mlx_lm non parsa i suoi tool",
-        "ctx": 32768,
-        "tier": "other",
-    },
-    "qwen35-9b": {
-        "label": "Qwen3.5-9B",
-        "tag": "altri · piccolo",
-        "size_gb": 6,
-        "note": "leggero, sotto la soglia agentic affidabile",
-        "ctx": 32768,
-        "tier": "other",
-    },
-    "qwen3-14b": {
-        "label": "Qwen3-14B",
-        "tag": "altri · dense",
-        "size_gb": 7,
-        "note": "dense 14B general purpose",
-        "ctx": 32768,
-        "tier": "other",
-    },
-    "qwen38": {
-        "label": "Qwen3.8-27B",
-        "tag": "altri · dense",
-        "size_gb": 15,
-        "note": "tool calling ok, ~7 t/s: no daily driver agentico",
-        "ctx": 262144,
-        "tier": "other",
-    },
-}
+_CONFIG_PATH = BASE_DIR / "config" / "llm-dash.toml"
+with open(_CONFIG_PATH, "rb") as _f:
+    CONFIG: dict = tomllib.load(_f)
+
+DASH_PORT = int(os.environ.get("DASH_PORT", str(CONFIG["server"]["dash_port"])))
+LLM_PORT = CONFIG["server"]["llm_port"]
+LLM_BASE = f"http://127.0.0.1:{LLM_PORT}/v1"
+
+PROFILES: dict[str, dict[str, Any]] = CONFIG["profiles"]
 
 LOG_RING: deque[str] = deque(maxlen=200)
 SWITCH_TASK: dict[str, Any] = {"running": False, "profile": None, "started": 0.0}
@@ -153,11 +91,19 @@ def _vm_stat_extras() -> dict[str, float]:
 def _pressure_level(
     percent: float, compressed_gb: float, total_gb: float, swap_used_gb: float
 ) -> str:
-    """Derive low/medium/high from used%, compressor activity, swap usage."""
+    """Derive low/medium/high from used%, compressor activity, swap usage.
+
+    Thresholds from config/llm-dash.toml [hardware].
+    """
+    hw = CONFIG["hardware"]
     compressor_ratio = compressed_gb / max(total_gb, 1)
-    if percent >= 88 or compressor_ratio > 0.18 or swap_used_gb > 8:
+    if (percent >= hw["pressure_high_percent"]
+            or compressor_ratio > 0.18
+            or swap_used_gb > hw["swap_high_gb"]):
         return "high"
-    if percent >= 72 or compressor_ratio > 0.08 or swap_used_gb > 2:
+    if (percent >= hw["pressure_medium_percent"]
+            or compressor_ratio > 0.08
+            or swap_used_gb > hw["swap_medium_gb"]):
         return "medium"
     return "low"
 
@@ -227,25 +173,12 @@ async def fetch_active_model() -> str | None:
 
 
 def detect_active_profile(model_name: str | None) -> str | None:
+    """Reverse lookup: model basename → profile key, via config paths."""
     if not model_name:
         return None
-    name = model_name.lower()
-    if "glm-4.7" in name:
-        return "build"
-    if "qwen3.8" in name:
-        return "qwen38"
-    if "qwen3.6" in name or "qwen3_5" in name:
-        return "coder"
-    if "qwen3-30b-a3b-instruct" in name:
-        return "plan"
-    if "qwen3-coder" in name:
-        return "coder-old"
-    if "qwen2.5-coder" in name:
-        return "coder-14b"
-    if "qwen3.5-9b" in name:
-        return "qwen35-9b"
-    if "qwen3-14b" in name:
-        return "qwen3-14b"
+    for key, prof in PROFILES.items():
+        if Path(prof["path"]).name == model_name:
+            return key
     return None
 
 
