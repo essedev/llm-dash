@@ -75,7 +75,10 @@ def cmd_profile(name: str) -> None:
 
     chat_args = dict(p.get("chat_template_args", {}))
     if "enable_thinking" in chat_args:
-        chat_args["enable_thinking"] = os.environ.get("THINK", "false").lower() == "true"
+        think_env = os.environ.get("THINK")
+        if think_env is not None:
+            chat_args["enable_thinking"] = think_env.lower() == "true"
+        # else: keep the TOML value as default
     if chat_args:
         print(f"CHAT_ARGS={_sq(json.dumps(chat_args))}")
     else:
