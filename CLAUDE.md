@@ -27,7 +27,7 @@ Il CSS va ribuildato dopo ogni modifica a `src/input.css`: `pnpm run build`. Non
 
 ## Gotcha
 
-- **Aggiungere un modello tocca 5 punti**, elencati in `docs/MODEL_SYNC.md`: `bin/llm-serve` (case + `print_profiles`), `main.py` (`PROFILES` + `detect_active_profile`), i due `opencode.json`, `docs/MODELS.md`. Saltarne uno lascia il modello invisibile o inavviabile da un lato solo.
+- **Aggiungere un modello tocca 4 punti**, elencati in `docs/MODEL_SYNC.md`: `config/llm-dash.toml` (single source of truth per profilo: label, path, size, ctx, tier, note, chat_template_args), i due `opencode.json`, `docs/MODELS.md`. `bin/llm-serve` e `main.py` leggono il TOML a runtime: non vanno editati. Saltare uno dei 4 lascia il modello invisibile da un lato.
 - **`/v1/models` di `mlx_lm.server` elenca tutta la cache, non il modello caricato.** Per sapere cosa sta girando si legge il `--model` dal processo (`served_model_path()` in `main.py`). Prendere `data[0]` mostra un modello a caso.
 - **marked >= 5 ha rimosso l'opzione `highlight` da `setOptions`**: passarla lì è codice morto e i blocchi restano senza colore. L'evidenziazione si applica al DOM dopo il parse, in `enhanceCode()`.
 - **`sse_starlette` separa gli eventi con `\r\n\r\n`** e splitta i dati multi-riga: senza la normalizzazione CRLF e la riconcatenazione delle righe `data:`, gli eventi spariscono e le newline del codice si perdono.
