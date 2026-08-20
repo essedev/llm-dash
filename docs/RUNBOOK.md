@@ -136,7 +136,7 @@ curl http://127.0.0.1:1234/v1/models
 
 **Cause possibili**:
 1. **Context window troppo basso**: i tool result vengono troncati. Verifica `limit.context >= 65536` nel config.
-2. **Thinking attivo**: il modello sprecca tutti i token in reasoning, niente content. Verifica che `llm-serve` sia partito con `THINK=false` (default su build/coder/glm profiles).
+2. **Thinking attivo**: il modello sprecca tutti i token in reasoning, niente content. Verifica che `llm-serve` sia partito con `THINK=false` (default sui profili default, es. build/coder).
 3. **Modello non supporta tool calling bene**: solo GLM-4.7 e Qwen3.6 sono affidabili. Gemma-E4B e Qwen3-Coder-30B sono marginali.
 
 ### Sintomo: dashboard si vede male (no styling)

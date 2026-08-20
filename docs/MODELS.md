@@ -17,7 +17,7 @@ MoE in formato MLX, >=16 GB, con tool calling parsato nativamente da `mlx_lm.ser
 
 ### Altri (su disco, non daily driver)
 
-Avviabili dove ha senso, ma fuori dai 4 default per i motivi sotto. I primi 3 sono profili (tier "other"); VL/gemma/embedding non sono profili.
+Avviabili dove ha senso, ma fuori dai 4 default per i motivi sotto. I primi 4 sono profili (tier "other"); VL/gemma/embedding non sono profili.
 
 | Profilo | Modello | Size | Perché non è default |
 |---|---|---|---|
