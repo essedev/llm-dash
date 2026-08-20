@@ -22,7 +22,7 @@ Il CSS va ribuildato dopo ogni modifica a `src/input.css`: `pnpm run build`. Non
 - **Un solo modello attivo per volta**, tutti sulla porta 1234. Su 32 GB due MoE da 16+ GB non ci stanno, e il tentativo manda il sistema in swap.
 - **Niente bundler JS**: Alpine, marked e highlight.js sono asset statici serviti da `/static`. Si edita e si ricarica il browser.
 - Tailwind v4 CSS-first: il tema sta in `@theme` dentro `src/input.css`, non esiste `tailwind.config.ts`.
-- Prosa e UI in italiano, codice e identificatori in inglese.
+- Prosa e UI in italiano, codice e identificatori in inglese. **Messaggi di commit in inglese** (Conventional Commits, imperativo): la storia del repo è inglese e resta tale.
 - Gli script in `bin/` sono **symlinkati** in `~/.local/bin`, non copiati: `./install.sh` fa backup e ricrea i link. Se un comando da terminale si comporta diversamente dal repo, il link è rotto o è tornato una copia.
 
 ## Gotcha
