@@ -79,6 +79,12 @@ def cmd_profile(name: str) -> None:
         if think_env is not None:
             chat_args["enable_thinking"] = think_env.lower() == "true"
         # else: keep the TOML value as default
+    # Emit the effective THINK value (resolved from TOML + env override)
+    if "enable_thinking" in chat_args:
+        print(f"THINK={'true' if chat_args['enable_thinking'] else 'false'}")
+    else:
+        print("THINK=n/a")
+
     if chat_args:
         print(f"CHAT_ARGS={_sq(json.dumps(chat_args))}")
     else:

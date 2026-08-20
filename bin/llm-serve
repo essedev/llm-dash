@@ -35,7 +35,6 @@ if [[ ! -d "$MODEL" ]]; then
   exit 1
 fi
 
-THINK="${THINK:-false}"
 echo ">>> Profile:  $PROFILE"
 echo ">>> Model:    $(basename "$MODEL")"
 echo ">>> Port:     $PORT"
