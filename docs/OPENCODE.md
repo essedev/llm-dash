@@ -131,4 +131,4 @@ Se opencode non vede i modelli:
 
 Se tool calling fallisce:
 - Verifica che il context window in `opencode.json` sia ≥ 64k (sotto, opencode tronca tool result e rompe il loop)
-- Verifica che `THINK=false` (nello script `llm-serve` è il default per build/coder profiles)
+- Verifica che `THINK=false` (default da `config/llm-dash.toml` per build/coder, letto via `_config.py`)
