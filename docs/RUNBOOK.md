@@ -9,8 +9,8 @@
 sysctl iogpu.wired_limit_mb
 # if it is 0 or different:  sudo sysctl iogpu.wired_limit_mb=28000
 
-# 2. Start the LLM server (default GLM-4.7)
-llm-up build
+# 2. Start the LLM server (default profile, server.default_profile)
+llm-up
 
 # 3. Start the dashboard (background)
 llm-dash --bg
@@ -24,14 +24,14 @@ Cold start of the first model: ~30s (reading 16-20 GB from disk). Later switches
 ### Quick start for a specific task
 
 ```bash
-# Deep coding
+# Agentic coding, reasoning on (the default profile)
 llm-up coder              # Qwen3.6-35B (~30s cold)
 
-# Planning
-llm-up plan               # Qwen3-30B-Instruct (~10s)
+# Dense 27B, more headroom but ~7 t/s
+llm-up qwen38             # Qwen3.8-27B
 
-# Raw speed
-llm-up coder-old          # Qwen3-Coder-30B 2025 (~10s, 37 t/s)
+# Light, when memory is tight
+llm-up qwen35-9b          # Qwen3.5-9B
 ```
 
 ## Essential commands
@@ -45,9 +45,9 @@ llm-up coder-old          # Qwen3-Coder-30B 2025 (~10s, 37 t/s)
 | `llm-dash --bg` | Dashboard in the background | 1s |
 | `llm-dash stop` | Stop the dashboard | <1s |
 
-Profiles: `build` (GLM-4.7), `coder` (Qwen3.6), `plan` (Qwen3-Instruct), `coder-old` (Qwen3-Coder).
+Profiles: `coder` (Qwen3.6, default), `qwen38` (Qwen3.8-27B), `qwen35-9b` (Qwen3.5-9B). Full list: `make models`.
 
-Env overrides: `PORT=1235 llm-serve build`, `THINK=true llm-serve coder`.
+Env overrides: `PORT=1235 llm-serve coder`, `THINK=false llm-serve coder`.
 
 ## End of session
 
@@ -136,8 +136,8 @@ curl http://127.0.0.1:1234/v1/models
 
 **Possible causes**:
 1. **Context window too small**: tool results get truncated. Check `limit.context >= 65536` in the config.
-2. **Thinking enabled**: the model burns all its tokens on reasoning, leaving no content. Check that `llm-serve` started with `THINK=false` (the default on the default profiles, e.g. build/coder).
-3. **Model does not support tool calling well**: only GLM-4.7 and Qwen3.6 are reliable. Gemma-E4B and Qwen3-Coder-30B are marginal.
+2. **Thinking enabled**: the model burns all its tokens on reasoning, leaving no content. Start it with `THINK=false llm-serve coder` (`coder` has `enable_thinking = true` in the TOML; `llm-serve` runs in the foreground, so the variable reaches it, which is not guaranteed through the tmux session of `llm-up`).
+3. **Model does not support tool calling well**: among the installed models only Qwen3.6 (`coder`) is a reliable daily driver; Qwen3.8-27B handles tools but at ~7 t/s, Qwen3.5-9B is below the 16 GB floor (see `docs/MODELS.md`).
 
 ### Symptom: dashboard looks broken (no styling)
 
@@ -177,7 +177,7 @@ llm-dash --bg
 **Diagnosis**:
 ```bash
 ps aux | grep "lms get\|mlx_lm.server"
-tail -50 /tmp/llm-build.log    # if nohup
+tail -50 /tmp/llm-coder.log    # if nohup, one log per profile
 # or
 tmux attach -t llm             # if tmux
 ```
@@ -187,7 +187,7 @@ If `llm-up` is stuck (e.g. a download did not complete), kill it:
 pkill -f "llm-serve"
 pkill -f "mlx_lm.server"
 sleep 2
-llm-up build                   # retry
+llm-up                         # retry
 ```
 
 ### Symptom: model download failed midway
@@ -211,7 +211,7 @@ sysctl iogpu.wired_limit_mb
 pgrep -lf mlx_lm.server
 
 # Start everything
-llm-up build
+llm-up
 llm-dash --bg
 ```
 

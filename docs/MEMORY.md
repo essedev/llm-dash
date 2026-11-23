@@ -66,7 +66,7 @@ System + apps: -10 GB
 Available:       22 GB
 KV @ 64k:       -6.4 GB
 ─────────────────────────
-Model budget:    15.6 GB → GLM-4.7 (16 GB) borderline
+Model budget:    15.6 GB → Qwen3.8-27B (15 GB) borderline
 ```
 
 You have to close a few tabs to fit.
@@ -95,7 +95,7 @@ Docker VM:       -6 GB
 Available:       16 GB
 KV @ 64k:       -6.4 GB
 ─────────────────────────
-Model budget:    9.6 GB → only Gemma-E4B (6 GB)
+Model budget:    9.6 GB → only Qwen3.5-9B (6 GB)
 ```
 
 For serious agentic LLM work you have to shut Docker down, or limit Docker Desktop to 4 GB of RAM (Settings → Resources → Memory).
