@@ -1,13 +1,13 @@
 // llm-dash client logic - Alpine + marked + highlight.js + localStorage
 
-// Distanza dal fondo entro cui la chat resta agganciata alla generazione.
+// How close to the bottom the chat must be to keep following the generation (stick to bottom).
 const STICK_THRESHOLD_PX = 120;
-// Eventi globali: 'conv:select', 'conv:new', 'conv:delete', 'conv:list'
+// Global events: 'conv:select', 'conv:new', 'conv:delete', 'conv:list'
 
 const STORAGE_KEY = 'llmdash:conversations:v1';
 const CURRENT_KEY = 'llmdash:current:v1';
 
-// ---- dialog store (custom alert/confirm) ----
+// Dialog store (custom alert/confirm).
 document.addEventListener('alpine:init', () => {
   window.Alpine.store('dialog', {
     open: false,
@@ -68,9 +68,9 @@ document.addEventListener('alpine:init', () => {
   });
 });
 
-// ---- markdown setup ----
-// marked >= 5 non accetta più l'opzione `highlight` in setOptions: l'evidenziazione
-// si applica al DOM dopo il parse, in enhanceCode().
+// Markdown setup.
+// marked >= 5 no longer accepts the `highlight` option in setOptions: highlighting
+// is applied to the DOM after parsing, in enhanceCode().
 function setupMarked() {
   if (typeof window.marked === 'undefined') return;
   window.marked.setOptions({ breaks: true, gfm: true });
@@ -82,14 +82,14 @@ function renderMd(text) {
   try { return window.marked.parse(text || ''); } catch (e) { return escapeHtml(text); }
 }
 
-// Durante lo streaming il testo è markdown a metà: un ``` ancora aperto
-// inghiottirebbe tutto il resto in un blocco di codice, e la risposta sembrerebbe
-// sparita. Chiudo virtualmente il recinto aperto solo per il render.
-// Le regole sono quelle di CommonMark: dentro un blocco aperto solo una riga di
-// soli backtick (o tilde), lunga almeno quanto l'apertura, lo chiude; una riga
-// come ```js è contenuto, non un recinto. Se il testo finisce già con un a capo
-// la chiusura va attaccata: un "\n" in più sarebbe una riga vuota nel codice
-// che sparisce quando arriva la chiusura vera, e il box si accorcia.
+// While streaming the text is half-written markdown: a still-open ``` would
+// swallow everything after it into one code block and the answer would look
+// like it vanished. The open code fence is closed virtually, for rendering only.
+// CommonMark rules apply: inside an open block only a line of nothing but
+// backticks (or tildes), at least as long as the opening, closes it; a line
+// like ```js is content, not a fence. If the text already ends with a newline
+// the closing goes right after it: an extra "\n" would be a blank line in the
+// code that disappears when the real closing arrives, shrinking the box.
 function closeOpenFences(text) {
   let open = null;
   for (const line of text.split('\n')) {
@@ -97,7 +97,7 @@ function closeOpenFences(text) {
     if (!m) continue;
     const [, fence, rest] = m;
     if (!open) {
-      if (fence[0] === '`' && rest.includes('`')) continue; // backtick inline, non un recinto
+      if (fence[0] === '`' && rest.includes('`')) continue; // inline backtick, not a code fence
       open = fence;
     } else if (fence[0] === open[0] && fence.length >= open.length && !rest.trim()) {
       open = null;
@@ -107,12 +107,12 @@ function closeOpenFences(text) {
   return text + (text.endsWith('\n') ? '' : '\n') + open;
 }
 
-// L'ultima riga, finché non arriva il suo a capo, può essere un pezzo di sintassi
-// che cambia la struttura del blocco sopra: uno o due backtick (recinto in
-// scrittura), una sottolineatura === / --- (il paragrafo diventa titolo, due righe
-// che diventano una) o il separatore di una tabella (le righe diventano intestazione).
-// Renderizzata così com'è comparirebbe come testo e sparirebbe al token dopo,
-// accorciando il box: la mostro solo quando è completa.
+// Until its newline arrives, the last line can be a piece of syntax that changes
+// the structure of the block above: one or two backticks (a code fence being
+// typed), a === / --- underline (the paragraph becomes a heading, two lines
+// become one) or a table separator (the rows become a header).
+// Rendered as is it would show up as text and vanish on the next token,
+// shrinking the box: it is shown only once complete.
 const PARTIAL_LINE = [
   /^ {0,3}`{1,2}$/,
   /^ {0,3}(=+|-+) *$/,
@@ -130,18 +130,18 @@ function htmlToFragment(html) {
   return t.content;
 }
 
-// Render incrementale della risposta in arrivo. Riparsare e sostituire tutto
-// l'HTML a ogni frame ricrea anche i blocchi già chiusi: perdono evidenziazione
-// e bottone copia, si rievidenziano in un task successivo (dopo il paint) e il
-// costo cresce col quadrato della lunghezza. Qui i blocchi di primo livello già
-// chiusi entrano nel DOM una volta sola, già evidenziati; a ogni frame si
-// riscrive solo l'ultimo, l'unico che può ancora cambiare.
+// Incremental render of the incoming answer. Re-parsing and replacing all the
+// HTML on every frame also recreates the already closed blocks: they lose their
+// highlighting and copy button, get re-highlighted in a later task (after paint),
+// and the cost grows with the square of the length. Here the closed top-level
+// blocks enter the DOM once, already highlighted; each frame rewrites only the
+// last one, the only block that can still change.
 class StreamRenderer {
   constructor(root) {
     this.root = root;
-    this.committed = []; // [{raw, nodes}] in ordine di documento
-    this.tail = [];      // nodi dell'ultimo blocco, riscritti a ogni update
-    this.links = '{}';   // definizioni [ref]: url viste all'ultimo update
+    this.committed = []; // [{raw, nodes}] in document order
+    this.tail = [];      // nodes of the last block, rewritten on every update
+    this.links = '{}';   // [ref]: url definitions seen at the last update
   }
 
   update(text) {
@@ -159,17 +159,17 @@ class StreamRenderer {
     }
     const stable = Math.max(tokens.length - 1, 0);
 
-    // Una definizione [ref]: url arrivata (o allungata) adesso cambia i link dei
-    // blocchi già chiusi senza cambiarne il raw: in quel caso si rifà tutto.
+    // A [ref]: url definition that has just arrived (or grown) changes the links of
+    // already closed blocks without changing their raw text: in that case rebuild everything.
     const links = JSON.stringify(tokens.links || {});
     if (links !== this.links) {
       this.links = links;
       for (const c of this.committed.splice(0)) c.nodes.forEach(n => n.remove());
     }
 
-    // Un blocco chiuso può ancora riaprirsi (una riga indentata dopo una riga
-    // vuota allunga la lista di prima): i commit valgono finché il loro raw è
-    // ancora un prefisso dei token nuovi, da lì in poi si rifanno.
+    // A closed block can still reopen (an indented line after a blank line extends
+    // the previous list): commits hold while their raw text is still a prefix of
+    // the new tokens, and are rebuilt from there on.
     let same = 0;
     while (same < this.committed.length && same < stable
            && this.committed[same].raw === tokens[same].raw) same++;
@@ -189,11 +189,11 @@ class StreamRenderer {
     this._placeCursor();
   }
 
-  // Il cursore va in coda al testo dell'ultimo blocco, dentro la stessa riga.
-  // Un ::after sull'ultimo figlio finirebbe su una riga sua sotto un blocco di
-  // codice, una lista o una tabella, e quella riga sparirebbe al blocco dopo.
-  // Dentro codice, tabelle e righe orizzontali il cursore non va: lì il blocco
-  // che cresce basta a far vedere che la generazione è in corso.
+  // The cursor goes at the end of the last block's text, on the same line.
+  // An ::after on the last child would land on its own line below a code block,
+  // list or table, and that line would vanish on the next block.
+  // The cursor stays out of code, tables and horizontal rules: there the growing
+  // block is enough to show that generation is in progress.
   _placeCursor() {
     if (!this.cursor) {
       this.cursor = document.createElement('span');
@@ -222,8 +222,8 @@ class StreamRenderer {
   }
 }
 
-// Blocchi in cui il cursore scende per arrivare all'ultima riga di testo, e
-// blocchi in cui non entra.
+// Blocks the cursor descends into to reach the last line of text, and blocks it
+// never enters.
 const CURSOR_DESCEND = new Set(['UL', 'OL', 'LI', 'BLOCKQUOTE', 'P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6',
                                 'PRE', 'TABLE', 'HR']);
 const CURSOR_SKIP = new Set(['PRE', 'TABLE', 'HR']);
@@ -240,7 +240,7 @@ function makeCopyButton(code) {
       btn.textContent = 'copied';
       btn.classList.add('ok');
     } catch (_) {
-      // Clipboard negata o contesto non sicuro: senza feedback il click sembra rotto.
+      // Clipboard denied or insecure context: without feedback the click looks broken.
       btn.textContent = 'failed';
       btn.classList.add('err');
     }
@@ -252,10 +252,10 @@ function makeCopyButton(code) {
   return btn;
 }
 
-// Evidenziazione + bottone copia sui blocchi di codice già renderizzati.
-// Durante lo streaming non tocca il blocco ancora in scrittura (StreamRenderer
-// lo passa solo per i blocchi chiusi): evidenziarlo a ogni token costerebbe e
-// farebbe sfarfallare i colori su codice sintatticamente incompleto.
+// Highlighting plus copy button on code blocks that are already rendered.
+// While streaming it never touches the block still being written (StreamRenderer
+// passes only closed blocks): highlighting on every token would be costly and
+// make colors flicker on syntactically incomplete code.
 function enhanceCode(root) {
   if (!root) return;
   root.querySelectorAll('pre > code').forEach((code) => {
@@ -277,7 +277,7 @@ function escapeHtml(s) {
   );
 }
 
-// ---- storage ----
+// Storage.
 function loadConversations() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -302,14 +302,14 @@ function uuid() {
   return 'c-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
 }
 
-// ---- dash component (status / memory / profiles / switch) ----
+// Dash component (status / memory / profiles / switch).
 function dash() {
   return {
     status: {running:false, model:null, profile:null, pid:null, port:1234, uptime:'-', switching:false, switching_profile:null},
     mem: {total_gb:32, used_gb:0, percent:0, swap_used_gb:0, swap_total_gb:0, wired_gb:0, available_gb:0, active_gb:0, inactive_gb:0, compressed_gb:0, pressure:'low'},
     profiles: {},
 
-    // Profili splittati per tier: i 4 default vs gli "altri" presenti su disco.
+    // Profiles split by tier: the default ones vs the "other" ones present on disk.
     get defaultProfiles() {
       return Object.fromEntries(
         Object.entries(this.profiles).filter(([, p]) => (p.tier || 'default') === 'default')
@@ -389,7 +389,7 @@ function dash() {
       const p = (window.__lastProfiles || {})[profile];
       const need = p ? p.size_gb : null;
       if (!need) return 'RAM riusabile (libera + cache + compressa)';
-      const margin = avail - (need + 6); // weights + ~6GB KV cache stima
+      const margin = avail - (need + 6); // weights + ~6 GB estimated KV cache
       if (margin > 4) return `Profile attivo (${need + 6} GB stimati): margine ${margin.toFixed(1)} GB`;
       if (margin > 0) return `Profile attivo (${need + 6} GB stimati): margine stretto ${margin.toFixed(1)} GB`;
       return `Profile attivo (${need + 6} GB stimati): ${(-margin).toFixed(1)} GB sotto - rischio swap`;
@@ -397,7 +397,7 @@ function dash() {
   };
 }
 
-// ---- chat component ----
+// Chat component.
 function chat() {
   return {
     currentId: null,
@@ -406,11 +406,11 @@ function chat() {
     input: '',
     streaming: false,
     streamBuf: '',
-    // Ragionamento del modello (delta.reasoning), tenuto separato dalla risposta.
+    // The model reasoning (delta.reasoning), kept apart from the answer.
     streamReasoning: '',
-    thinkSecs: null,      // durata del ragionamento, fissata al primo token di risposta
+    thinkSecs: null,      // reasoning duration, fixed at the first answer token
     _thinkT0: 0,
-    openThinkIdx: -1,     // messaggio appena chiuso il cui ragionamento resta aperto
+    openThinkIdx: -1,     // just-closed message whose reasoning stays open
     stuck: true,
     lastStats: {tps:null, tokens:0, elapsed:0},
     lastUsage: {prompt_tokens:0, completion_tokens:0},
@@ -497,10 +497,10 @@ function chat() {
 
     renderMd, escapeHtml, enhanceCode,
 
-    // Aggancio al fondo: seguo la generazione finché l'utente resta entro la soglia.
-    // Se scrolla più su mi sgancio e smetto di trascinarlo giù; quando rientra
-    // nella soglia si riaggancia da solo. Lo scroll programmatico atterra a
-    // distanza ~0, quindi non si sgancia da sé.
+    // Stick to bottom: follow the generation while the user stays within the threshold.
+    // If they scroll further up it detaches and stops pulling them down; once they
+    // are back within the threshold it re-attaches by itself. Programmatic scrolling
+    // lands at distance ~0, so it never detaches by itself.
     _bindScroll() {
       const el = this.$refs.msgs;
       if (!el) return;
@@ -532,10 +532,10 @@ function chat() {
       });
     },
 
-    // Il markdown del testo in arrivo si riparsa al massimo una volta per frame:
-    // i token che arrivano in raffica collassano in un solo render. DOM, codice
-    // evidenziato e scroll si aggiornano nello stesso frame: passare da $nextTick
-    // (che in Alpine è un setTimeout) li spezzerebbe su paint diversi.
+    // The markdown of the incoming text is re-parsed at most once per frame:
+    // bursts of tokens collapse into a single render. DOM, highlighted code and
+    // scroll update in the same frame: going through $nextTick (a setTimeout in
+    // Alpine) would split them across different paints.
     _scheduleRender() {
       if (this._renderPending) return;
       this._renderPending = true;
@@ -544,8 +544,8 @@ function chat() {
         this._renderThinking();
         const box = this.$refs.streamBox;
         if (this.streamBuf && box) {
-          // Il renderer vive sull'elemento: x-if lo ricrea a ogni risposta nuova,
-          // e fuori dallo stato Alpine i nodi DOM non finiscono in un proxy reattivo.
+          // The renderer lives on the element: x-if recreates it for every new answer,
+          // and outside Alpine state the DOM nodes do not end up in a reactive proxy.
           if (!box._stream) box._stream = new StreamRenderer(box);
           box._stream.update(this.streamBuf);
         }
@@ -553,9 +553,9 @@ function chat() {
       });
     },
 
-    // Il ragionamento è testo semplice: si appende solo la parte nuova. Il riquadro
-    // ha un'altezza massima e segue il fondo da solo, finché l'utente non ci
-    // scrolla dentro per rileggere.
+    // Reasoning is plain text: only the new part is appended. The box has a maximum
+    // height and follows the bottom by itself, until the user scrolls inside it
+    // to reread.
     _renderThinking() {
       const tb = this.$refs.thinkBox;
       if (!tb) return;
@@ -594,7 +594,7 @@ function chat() {
       this.streaming = true;
       this._abort = new AbortController();
       this.persist();
-      // Un invio nuovo riporta l'utente al fondo anche se stava leggendo più su.
+      // A new send brings the user back to the bottom even if they were reading further up.
       this.stuck = true;
       this._scheduleScroll(true);
 
@@ -651,9 +651,9 @@ function chat() {
       }
     },
 
-    // Stop + scarta tutto: usato quando l'utente cambia conversazione
-    // o cancella la chat mentre stai streamando. Evita che il flush
-    // finale spinga la risposta parziale nella conversazione sbagliata.
+    // Stop and discard everything: used when the user switches conversation or
+    // deletes the chat while it is streaming. Keeps the final flush from pushing
+    // the partial answer into the wrong conversation.
     _abortAndDiscard() {
       if (!this.streaming) return;
       this._discardStream = true;
@@ -671,9 +671,9 @@ function chat() {
         if (l.startsWith('event: ')) {
           event = l.slice(7);
         } else if (l.startsWith('data:')) {
-          // Per SSE spec: ogni data line si appende con \n separator.
-          // Necessario per i token che contengono newline (sse-starlette
-          // splitta su \n, frontend deve riassemblare).
+          // Per the SSE spec, each data line is appended with a \n separator.
+          // Needed for tokens that contain newlines (sse-starlette splits on \n,
+          // the frontend must reassemble).
           if (dataSeen) data += '\n';
           data += l.startsWith('data: ') ? l.slice(6) : l.slice(5);
           dataSeen = true;
@@ -717,13 +717,13 @@ function chat() {
       this.streaming = false;
       this._abort = null;
       this.persist();
-      // Il messaggio chiuso diventa un bubble normale: evidenziazione e bottone
-      // copia li mette il suo x-init, anche sull'ultimo blocco saltato in streaming.
+      // The closed message becomes a normal bubble: highlighting and copy button
+      // come from its x-init, also on the last block skipped while streaming.
       this._scheduleScroll();
     },
 
-    // Token count: usa il valore reale dell'ultimo round-trip se disponibile,
-    // altrimenti stima ~4 char/token (testo misto IT/EN).
+    // Token count: use the real value from the last round trip if available,
+    // otherwise estimate ~4 chars/token (mixed IT/EN text).
     ctxUsed() {
       const real = (this.lastUsage.prompt_tokens || 0) + (this.lastUsage.completion_tokens || 0);
       if (real > 0 && !this.streaming) return real;
@@ -750,7 +750,7 @@ function chat() {
   };
 }
 
-// ---- conversations sidebar component ----
+// Conversations sidebar component.
 function conversations() {
   return {
     list: {},
@@ -792,7 +792,7 @@ function conversations() {
       const all = loadConversations();
       delete all[id];
       saveConversations(all);
-      // Se è la conv attiva, svuota il pannello chat tramite conv:new(null)
+      // If it is the active conversation, clear the chat panel through conv:new(null).
       if (getCurrentId() === id) {
         setCurrentId(null);
         window.dispatchEvent(new CustomEvent('conv:new', {detail: {id: null}}));
@@ -826,7 +826,7 @@ function conversations() {
   };
 }
 
-// ---- logs viewer component ----
+// Logs viewer component.
 function logsView() {
   return {
     lines: [],

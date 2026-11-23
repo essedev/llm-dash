@@ -1,4 +1,4 @@
-"""LLM Dash - mini control plane per mlx_lm.server locale."""
+"""LLM Dash: a small control plane for a local mlx_lm.server."""
 
 from __future__ import annotations
 
@@ -37,9 +37,10 @@ LOG_RING: deque[str] = deque(maxlen=200)
 SWITCH_TASK: dict[str, Any] = {"running": False, "profile": None, "started": 0.0}
 
 
-# ---------- helpers ----------
+# Helpers.
 
 def _listens_on_llm_port(p: psutil.Process) -> bool:
+    """Whether the process listens on the LLM port."""
     try:
         return any(
             c.status == psutil.CONN_LISTEN and c.laddr and c.laddr.port == LLM_PORT
@@ -63,6 +64,7 @@ def _is_llm_server(p: psutil.Process, cmdline: list[str]) -> bool:
 
 
 def find_mlx_server_pid() -> int | None:
+    """PID of the running LLM server, or None."""
     found: dict[int, int] = {}  # pid -> parent pid
     for p in psutil.process_iter(["pid", "ppid", "cmdline"]):
         try:
@@ -78,6 +80,7 @@ def find_mlx_server_pid() -> int | None:
 
 
 def server_uptime(pid: int) -> int:
+    """Seconds since the process started, 0 if it is gone."""
     try:
         return int(time.time() - psutil.Process(pid).create_time())
     except psutil.NoSuchProcess:
@@ -85,6 +88,7 @@ def server_uptime(pid: int) -> int:
 
 
 def fmt_uptime(s: int) -> str:
+    """Human-readable uptime such as "1h 5m"."""
     if s < 60:
         return f"{s}s"
     if s < 3600:
@@ -136,6 +140,7 @@ def _pressure_level(
 
 
 def memory_snapshot() -> dict[str, float]:
+    """Current memory, swap and pressure figures, in GB except percent and pressure."""
     vm = psutil.virtual_memory()
     swap = psutil.swap_memory()
     extras = _vm_stat_extras()
@@ -159,10 +164,10 @@ def memory_snapshot() -> dict[str, float]:
 
 
 def served_model_path() -> str | None:
-    """Modello effettivamente servito, letto dal --model del processo.
+    """Path of the model actually served, read from the process --model flag.
 
-    /v1/models elenca tutti i modelli che mlx_lm.server trova in cache, non
-    solo quello caricato, quindi data[0] non è affidabile.
+    /v1/models lists every model mlx_lm.server finds in its cache, not only the
+    loaded one, so data[0] is not reliable.
     """
     for proc in psutil.process_iter(["cmdline"]):
         try:
@@ -179,6 +184,7 @@ def served_model_path() -> str | None:
 
 
 async def fetch_active_full_path() -> str | None:
+    """Full path of the loaded model, from the process flags or /v1/models."""
     served = served_model_path()
     if served:
         return served
@@ -195,6 +201,7 @@ async def fetch_active_full_path() -> str | None:
 
 
 async def fetch_active_model() -> str | None:
+    """Basename of the loaded model, or None."""
     full = await fetch_active_full_path()
     return Path(full).name if full else None
 
@@ -210,6 +217,7 @@ def detect_active_profile(model_name: str | None) -> str | None:
 
 
 def run_cmd(cmd: list[str]) -> tuple[int, str]:
+    """Run a command with a timeout and return (exit code, combined output)."""
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
         out = (proc.stdout or "") + (proc.stderr or "")
@@ -220,7 +228,7 @@ def run_cmd(cmd: list[str]) -> tuple[int, str]:
         return 127, str(e)
 
 
-# ---------- app ----------
+# App.
 
 app = FastAPI(title="LLM Dash")
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
@@ -229,11 +237,13 @@ templates = Jinja2Templates(directory=BASE_DIR / "templates")
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request) -> HTMLResponse:
+    """Dashboard page."""
     return templates.TemplateResponse(request, "index.html", {})
 
 
 @app.get("/api/status")
 async def api_status() -> JSONResponse:
+    """Server state: running, PID, uptime, active model and profile, switch progress."""
     pid = find_mlx_server_pid()
     model_name = await fetch_active_model() if pid else None
     profile = detect_active_profile(model_name)
@@ -252,16 +262,19 @@ async def api_status() -> JSONResponse:
 
 @app.get("/api/memory")
 async def api_memory() -> JSONResponse:
+    """Memory snapshot."""
     return JSONResponse(memory_snapshot())
 
 
 @app.get("/api/profiles")
 async def api_profiles() -> JSONResponse:
+    """Profiles from config/llm-dash.toml."""
     return JSONResponse(PROFILES)
 
 
 @app.post("/api/switch/{profile}")
 async def api_switch(profile: str) -> JSONResponse:
+    """Start the given profile in the background, replacing the active model."""
     if profile not in PROFILES:
         return JSONResponse({"error": f"unknown profile: {profile}"}, status_code=400)
     if SWITCH_TASK["running"]:
@@ -281,6 +294,7 @@ async def api_switch(profile: str) -> JSONResponse:
 
 @app.post("/api/stop")
 async def api_stop() -> JSONResponse:
+    """Stop the LLM server."""
     code, out = run_cmd([os.path.expanduser("~/.local/bin/llm-down")])
     LOG_RING.append(f"[{time.strftime('%H:%M:%S')}] stop (exit {code}) {out.strip()[:150]}")
     return JSONResponse({"ok": code == 0, "out": out})
@@ -288,11 +302,13 @@ async def api_stop() -> JSONResponse:
 
 @app.get("/api/logs")
 async def api_logs() -> JSONResponse:
+    """Last lines of the in-memory event log."""
     return JSONResponse({"lines": list(LOG_RING)[-50:]})
 
 
 @app.post("/api/chat")
 async def api_chat(req: Request) -> EventSourceResponse:
+    """Stream a chat completion from the LLM server as server-sent events."""
     body = await req.json()
     user_msg: str = body.get("message", "")
     history: list[dict[str, str]] = body.get("history", [])
@@ -361,11 +377,11 @@ async def api_chat(req: Request) -> EventSourceResponse:
                             choices = chunk.get("choices") or []
                             if choices:
                                 delta = choices[0].get("delta", {})
-                                # mlx_lm.server manda il ragionamento in delta.reasoning,
-                                # altri server OpenAI-compatibili in reasoning_content.
+                                # mlx_lm.server sends reasoning in delta.reasoning, other
+                                # OpenAI-compatible servers in reasoning_content.
                                 reasoning = delta.get("reasoning") or delta.get("reasoning_content")
                                 content = delta.get("content")
-                                # Anche i token di ragionamento sono generati: contano per tok/s.
+                                # Reasoning tokens are generated too, so they count toward tok/s.
                                 if reasoning or content:
                                     n_tokens += 1
                                 if reasoning:
@@ -381,6 +397,7 @@ async def api_chat(req: Request) -> EventSourceResponse:
 
 
 def main() -> None:
+    """Run the dashboard with uvicorn."""
     import uvicorn
     uvicorn.run("main:app", host="127.0.0.1", port=DASH_PORT,
                 log_level="warning", reload=False)

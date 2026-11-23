@@ -1,13 +1,13 @@
-# llm-dash.toml - single source of truth per profili e config server.
-# Letto da: bin/llm-serve (via bin/_config.py), main.py (via tomllib).
-# Per aggiungere/rimuovere un modello: edita questo file, poi segui docs/MODEL_SYNC.md.
+# llm-dash.toml - single source of truth for profiles and server settings.
+# Read by: bin/llm-serve (via bin/_config.py) and main.py (via tomllib).
+# To add or remove a model: edit this file, then follow docs/MODEL_SYNC.md.
 
 [server]
 llm_port = 1234
 dash_port = 1230
 models_dir = "~/.lmstudio/models"
 wired_limit_mb = 28000
-# Profilo usato da llm-up / llm-serve / make up quando non ne passi uno.
+# Profile used by llm-up, llm-serve and make up when none is given.
 default_profile = "coder"
 
 [hardware]
@@ -16,7 +16,7 @@ pressure_medium_percent = 72
 swap_high_gb = 8
 swap_medium_gb = 2
 
-# --- default: MoE agentici, tool calling parsato da mlx_lm.server ---
+# Default tier: agentic MoE models, tool calling parsed by mlx_lm.server.
 
 [profiles.coder]
 label = "Qwen3.6-35B-A3B-UD"
@@ -30,7 +30,7 @@ note = "SWE-bench 73.4%, ~25-27 t/s"
 [profiles.coder.chat_template_args]
 enable_thinking = true
 
-# --- altri: avviabili, non daily driver agentici (vedi docs/MODELS.md) ---
+# Other tier: startable, but not agentic daily drivers (see docs/MODELS.md).
 
 [profiles.qwen35-9b]
 label = "Qwen3.5-9B"

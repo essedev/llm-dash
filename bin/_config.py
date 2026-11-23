@@ -2,9 +2,9 @@
 """Internal helper: read config/llm-dash.toml for use in bash scripts.
 
 Usage:
-  _config.py list                  elenca i profili per tier
-  _config.py profile <name>        outputta MODEL=, LABEL=, NOTE=, CHAT_ARGS=, PORT=
-  _config.py server <field>        outputta un valore da [server]
+  _config.py list                  list the profiles by tier
+  _config.py profile <name>        print MODEL=, LABEL=, NOTE=, CHAT_ARGS=, PORT=
+  _config.py server <field>        print one value from [server]
 """
 from __future__ import annotations
 
@@ -18,6 +18,7 @@ CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "llm-dash.toml
 
 
 def _load() -> dict:
+    """Return the parsed config/llm-dash.toml, exiting if the file is missing."""
     if not CONFIG_PATH.exists():
         print(f"ERROR: {CONFIG_PATH} non trovato", file=sys.stderr)
         sys.exit(1)
@@ -31,6 +32,7 @@ def _sq(s: str) -> str:
 
 
 def cmd_list() -> None:
+    """Print the startable profiles grouped by tier."""
     cfg = _load()
     profiles = cfg.get("profiles", {})
     port = cfg["server"]["llm_port"]
@@ -56,6 +58,7 @@ def cmd_list() -> None:
 
 
 def cmd_profile(name: str) -> None:
+    """Print the shell assignments (MODEL, LABEL, NOTE, THINK, CHAT_ARGS, PORT) for one profile."""
     cfg = _load()
     profiles = cfg.get("profiles", {})
 
@@ -94,6 +97,7 @@ def cmd_profile(name: str) -> None:
 
 
 def cmd_server(field: str) -> None:
+    """Print one field of the [server] table."""
     cfg = _load()
     server = cfg.get("server", {})
     if field not in server:
@@ -106,6 +110,7 @@ def cmd_server(field: str) -> None:
 
 
 def main() -> None:
+    """Dispatch the command-line subcommand."""
     if len(sys.argv) < 2:
         print(__doc__, file=sys.stderr)
         sys.exit(1)

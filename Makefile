@@ -1,40 +1,40 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
-help: ## Lista comandi disponibili
+help: ## List the available commands
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
 
-install: ## Symlink degli script in ~/.local/bin/
+install: ## Symlink the scripts into ~/.local/bin/
 	@./install.sh
 
-install-check: ## Mostra cosa farebbe install.sh, senza modificare
+install-check: ## Show what install.sh would do, without changing anything
 	@./install.sh --check
 
-build-css: ## Buildare Tailwind CSS (statics/output.css)
+build-css: ## Build the Tailwind CSS (static/output.css)
 	pnpm run build
 
-watch-css: ## Watch mode Tailwind (rebuild on change)
+watch-css: ## Watch mode for Tailwind (rebuild on change)
 	pnpm run watch
 
-dev: ## Avvia dashboard in foreground (porta 1230)
+dev: ## Run the dashboard in the foreground (port 1230)
 	uv run python main.py
 
-dash: ## Avvia dashboard in background
+dash: ## Run the dashboard in the background
 	@~/.local/bin/llm-dash --bg
 
-dash-stop: ## Ferma dashboard
+dash-stop: ## Stop the dashboard
 	@~/.local/bin/llm-dash stop 2>/dev/null || pkill -f "llm-dash/main.py" || true
 
-models: ## Lista i profili (modelli) avviabili
+models: ## List the startable profiles (models)
 	@bin/llm-serve list
 
-llm-up: ## Avvia mlx_lm.server col profilo default (server.default_profile)
+llm-up: ## Start mlx_lm.server with the default profile (server.default_profile)
 	@~/.local/bin/llm-up
 
-llm-down: ## Ferma tutti i mlx_lm.server
+llm-down: ## Stop every mlx_lm.server
 	@~/.local/bin/llm-down
 
-up: ## Avvia stack completo (LLM + dashboard) in tmux session "llm"
+up: ## Start the full stack (LLM + dashboard) in the tmux session "llm"
 	@command -v tmux >/dev/null || { echo "tmux non installato"; exit 1; }
 	@~/.local/bin/llm-up
 	@sleep 1
@@ -51,18 +51,18 @@ up: ## Avvia stack completo (LLM + dashboard) in tmux session "llm"
 	@echo "  Attach:     tmux attach -t llm"
 	@echo "  Stop tutto: make down"
 
-down: ## Ferma stack completo (LLM + dashboard + tmux session)
+down: ## Stop the full stack (LLM + dashboard + tmux session)
 	@~/.local/bin/llm-dash stop 2>/dev/null || true
 	@~/.local/bin/llm-down 2>/dev/null || true
 	@tmux kill-session -t llm 2>/dev/null || true
 	@echo "Stack fermato"
 
-status: ## Stato runtime (server attivo + memoria)
+status: ## Runtime status (active server + memory)
 	@curl -s http://127.0.0.1:1230/api/status 2>/dev/null | python3 -m json.tool || echo "dashboard offline - lancia: make up"
 
-clean: ## Rimuovi cache build
+clean: ## Remove build caches
 	rm -rf static/output.css node_modules/.cache .venv/__pycache__ __pycache__
 
-setup: install build-css ## Setup completo: symlink script + build CSS
+setup: install build-css ## Full setup: symlink scripts + build CSS
 
 .PHONY: help install install-check build-css watch-css dev dash dash-stop models llm-up llm-down up down status clean setup

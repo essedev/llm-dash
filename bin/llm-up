@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
-# llm-up - avvia un singolo mlx_lm.server in background con il profilo scelto
-# Uso: llm-up [profile]   default = server.default_profile in config/llm-dash.toml
-#      (lista profili: llm-serve list)
+# llm-up - start a single mlx_lm.server in the background with the chosen profile.
+# Usage: llm-up [profile]   default = server.default_profile in config/llm-dash.toml
+#        (list the profiles: llm-serve list)
 #
-# Solo 1 modello attivo per volta su 32 GB di RAM.
-# Per cambiare modello usa: llm-switch <profile>
-# Per fermare: llm-down
+# Only one model at a time fits in 32 GB of RAM.
+# To change model: llm-switch <profile>
+# To stop: llm-down
 
 set -euo pipefail
 
 SCRIPT_DIR="$(python3 -c 'import os,sys; print(os.path.dirname(os.path.realpath(sys.argv[1])))' "${BASH_SOURCE[0]}")"
 PROFILE="${1:-$(python3 "$SCRIPT_DIR/_config.py" server default_profile)}"
 
-# stop server precedente se esiste
+# Stop the previous server, if any.
 if pgrep -f "mlx_lm.server" >/dev/null; then
   echo "fermo mlx_lm.server precedente..."
   pkill -f "mlx_lm.server" 2>/dev/null || true

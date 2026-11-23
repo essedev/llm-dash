@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# install.sh - deploya gli script della piattaforma in ~/.local/bin/ via symlink
-# La sorgente di verità diventa bin/ in questo repo: edit qui, le modifiche sono live.
+# install.sh - link the platform scripts into ~/.local/bin/.
+# bin/ in this repo stays the source of truth: edit there and changes are live.
 #
-# Uso:
-#   ./install.sh             # symlink degli script + suggerimenti config
-#   ./install.sh --check     # mostra cosa farebbe, senza modificare nulla
+# Usage:
+#   ./install.sh             # symlink the scripts + print config hints
+#   ./install.sh --check     # show what it would do, without changing anything
 
 set -euo pipefail
 

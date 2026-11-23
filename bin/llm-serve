@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# llm-serve - avvia mlx_lm.server con un modello scelto
+# llm-serve - start mlx_lm.server with the chosen model.
 #
-# Uso:
-#   llm-serve [profile]         avvia il server in foreground (default: server.default_profile)
-#   llm-serve list              elenca i profili
+# Usage:
+#   llm-serve [profile]         run the server in the foreground (default: server.default_profile)
+#   llm-serve list              list the profiles
 #
-# I profili sono definiti in config/llm-dash.toml (single source of truth).
-# Override: PORT=N llm-serve <profile>    THINK=true llm-serve <profile>
+# Profiles are defined in config/llm-dash.toml (single source of truth).
+# Overrides: PORT=N llm-serve <profile>    THINK=true llm-serve <profile>
 
 set -euo pipefail
 
