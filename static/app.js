@@ -2,6 +2,8 @@
 
 // How close to the bottom the chat must be to keep following the generation (stick to bottom).
 const STICK_THRESHOLD_PX = 120;
+// KV cache budget of a loaded model at 64k context (docs/MEMORY.md).
+const KV_CACHE_GB = 6;
 // Global events: 'conv:select', 'conv:new', 'conv:delete', 'conv:list'
 
 const STORAGE_KEY = 'llmdash:conversations:v1';
@@ -385,14 +387,18 @@ function dash() {
       ];
     },
 
+    // `profile` is the running one, so its weights are already resident (wired and
+    // active memory) and not part of `avail`: subtracting them again reported a swap
+    // risk whenever a model was loaded. What still has to fit is the KV cache, which
+    // grows with the context (~6 GB at 64k tokens, see docs/MEMORY.md).
     fitMessage(avail, profile) {
       const p = (window.__lastProfiles || {})[profile];
-      const need = p ? p.size_gb : null;
-      if (!need) return 'Reusable RAM (free + cache + compressed)';
-      const margin = avail - (need + 6); // weights + ~6 GB estimated KV cache
-      if (margin > 4) return `Active profile (${need + 6} GB estimated): ${margin.toFixed(1)} GB margin`;
-      if (margin > 0) return `Active profile (${need + 6} GB estimated): tight margin, ${margin.toFixed(1)} GB`;
-      return `Active profile (${need + 6} GB estimated): ${(-margin).toFixed(1)} GB short, swap risk`;
+      if (!p) return 'Reusable RAM (free + cache + compressed)';
+      const margin = avail - KV_CACHE_GB;
+      const kv = `~${KV_CACHE_GB} GB KV cache`;
+      if (margin > 4) return `Model loaded: ${margin.toFixed(1)} GB margin after ${kv}`;
+      if (margin > 0) return `Model loaded: tight margin, ${margin.toFixed(1)} GB after ${kv}`;
+      return `Model loaded: ${(-margin).toFixed(1)} GB short for ${kv}, swap risk`;
     }
   };
 }
