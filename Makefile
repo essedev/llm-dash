@@ -28,15 +28,15 @@ dash-stop: ## Ferma dashboard
 models: ## Lista i profili (modelli) avviabili
 	@bin/llm-serve list
 
-llm-up: ## Avvia mlx_lm.server (default profile: build)
-	@~/.local/bin/llm-up build
+llm-up: ## Avvia mlx_lm.server col profilo default (server.default_profile)
+	@~/.local/bin/llm-up
 
 llm-down: ## Ferma tutti i mlx_lm.server
 	@~/.local/bin/llm-down
 
 up: ## Avvia stack completo (LLM + dashboard) in tmux session "llm"
 	@command -v tmux >/dev/null || { echo "tmux non installato"; exit 1; }
-	@~/.local/bin/llm-up build
+	@~/.local/bin/llm-up
 	@sleep 1
 	@if tmux list-panes -t llm:server 2>/dev/null | grep -q '^1:'; then \
 		echo "Dashboard pane gia' presente nella session 'llm'"; \

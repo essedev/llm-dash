@@ -162,8 +162,8 @@ In `psutil.virtual_memory()` il compressor è incluso in `used` ma il sistema lo
 
 ## Workflow consigliato
 
-1. **Sessione di coding seria**: chiudi Brave, lascia solo cmux + un editor + opencode. Carica Qwen3.6 o GLM. Lavora.
-2. **Day usage normale**: GLM-4.7 (16 GB) basta nel 90% dei casi e lascia headroom.
+1. **Sessione di coding seria**: chiudi Brave, lascia solo cmux + un editor + opencode. Carica Qwen3.6 (`coder`). Lavora.
+2. **Day usage normale**: se serve headroom, Qwen3.8-27B (15 GB) o Qwen3.5-9B (6 GB) al posto di Qwen3.6 (20 GB).
 3. **Quando il badge pressure passa a medium/high**: chiudi qualcosa o swap a modello più piccolo. `% used` da solo non basta - guarda anche compressor e swap nella legenda.
 4. **Dopo sessione MLX intensa**: `llm-down` quando finisci, libera 16-20 GB istantanei.
 

@@ -18,32 +18,12 @@
         "baseURL": "http://127.0.0.1:1234/v1"
       },
       "models": {
-        "/Users/doppia/.lmstudio/models/lmstudio-community/GLM-4.7-Flash-MLX-4bit": {
-          "name": "GLM-4.7-Flash (build default)",
-          "limit": { "context": 65536, "output": 8192 }
-        },
         "/Users/doppia/.lmstudio/models/unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit": {
-          "name": "Qwen3.6-35B-A3B (deeper coding)",
+          "name": "Qwen3.6-35B-A3B (coder default)",
           "limit": { "context": 65536, "output": 8192 }
-        },
-        "/Users/doppia/.lmstudio/models/lmstudio-community/Qwen3-30B-A3B-Instruct-2507-MLX-4bit": {
-          "name": "Qwen3-30B-Instruct (planner)",
-          "limit": { "context": 65536, "output": 8192 }
-        },
-        "/Users/doppia/.lmstudio/models/lmstudio-community/Qwen3-Coder-30B-A3B-Instruct-MLX-4bit": {
-          "name": "Qwen3-Coder-30B (fast fallback ~37 t/s)",
-          "limit": { "context": 65536, "output": 8192 }
-        },
-        "/Users/doppia/.lmstudio/models/lmstudio-community/Qwen2.5-Coder-14B-Instruct-MLX-4bit": {
-          "name": "Qwen2.5-Coder-14B (altri - no tool calling)",
-          "limit": { "context": 32768, "output": 8192 }
         },
         "/Users/doppia/.lmstudio/models/mlx-community/Qwen3.5-9B-MLX-4bit": {
           "name": "Qwen3.5-9B (altri - piccolo)",
-          "limit": { "context": 32768, "output": 8192 }
-        },
-        "/Users/doppia/.lmstudio/models/Qwen/Qwen3-14B-MLX-4bit": {
-          "name": "Qwen3-14B (altri - dense)",
           "limit": { "context": 32768, "output": 8192 }
         },
         "/Users/doppia/.lmstudio/models/lmstudio-community/Qwen3.8-27B-MLX-4bit": {
@@ -53,5 +33,5 @@
       }
     }
   },
-  "model": "mlx//Users/doppia/.lmstudio/models/lmstudio-community/GLM-4.7-Flash-MLX-4bit"
+  "model": "mlx//Users/doppia/.lmstudio/models/unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit"
 }

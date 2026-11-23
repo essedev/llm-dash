@@ -10,24 +10,17 @@ MoE in formato MLX, >=16 GB, con tool calling parsato nativamente da `mlx_lm.ser
 
 | Profilo | Modello | Size | Ruolo |
 |---|---|---|---|
-| `build` | `lmstudio-community/GLM-4.7-Flash-MLX-4bit` | 16 GB | **Build default** - tool calling, ~32 t/s |
-| `coder` | `unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit` | 20 GB | Deeper coding, SWE-bench 73.4% |
-| `plan` | `lmstudio-community/Qwen3-30B-A3B-Instruct-2507-MLX-4bit` | 17 GB | **Planner** reasoning + planning |
-| `coder-old` | `lmstudio-community/Qwen3-Coder-30B-A3B-Instruct-MLX-4bit` | 16 GB | Fast fallback ~37 t/s |
+| `coder` | `unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit` | 20 GB | **Profilo di default** (`server.default_profile`) - coding agentico, SWE-bench 73.4%, thinking attivo |
 
 ### Altri (su disco, non daily driver)
 
-Avviabili dove ha senso, ma fuori dai 4 default per i motivi sotto. I primi 4 sono profili (tier "other"); VL/gemma/embedding non sono profili.
+Avviabili dove ha senso, ma fuori dai default per i motivi sotto. I primi 2 sono profili (tier "other"); gemma non è un profilo.
 
 | Profilo | Modello | Size | Perché non è default |
 |---|---|---|---|
-| `coder-14b` | `lmstudio-community/Qwen2.5-Coder-14B-Instruct-MLX-4bit` | 8 GB | `mlx_lm.server` non parsa i suoi tool: niente agentic, solo chat |
 | `qwen35-9b` | `mlx-community/Qwen3.5-9B-MLX-4bit` | 6 GB | Sotto i 16 GB = floor agentic affidabile su questo setup |
-| `qwen3-14b` | `Qwen/Qwen3-14B-MLX-4bit` | 7 GB | Dense 14B general purpose, non agentic-tuned |
 | `qwen38` | `lmstudio-community/Qwen3.8-27B-MLX-4bit` | 15 GB | Dense 27B: tool calling ok, ma 7,1 t/s misurati (vedi sotto) |
-| - | `lmstudio-community/Qwen3-VL-30B-A3B-Instruct-MLX-4bit` | 17 GB | Vision (screenshot/UI): non avviato come profilo testo |
 | - | `unsloth/gemma-4-E4B-it-GGUF` | 6.3 GB | GGUF: `mlx_lm.server` carica solo MLX, qui non è servibile (inline via LM Studio) |
-| - | `text-embedding-nomic-embed-text-v1.5` | 84 MB | Embedding, gestito da LM Studio |
 
 ## Modelli rimossi nel cleanup
 
@@ -39,6 +32,8 @@ Cancellati per liberare ~50 GB e ridurre confusione:
 | `DeepSeek-R1-Distill-Qwen-14B-GGUF` | Distill obsoleto, reasoning ora coperto da Qwen3-Instruct |
 | `gemma-3-27b-it-qat-4bit` | Gemma 3 superato da Gemma 4 famiglia, e ridondante con i Qwen3 |
 | `gemma-4-26B-A4B-it-GGUF` | Ridondante con Qwen3-30B-Instruct (stesso ruolo planner, Qwen vince benchmark) |
+
+Non più su disco a novembre 2026, profili tolti dalla config: GLM-4.7-Flash (`build`), Qwen3-30B-Instruct-2507 (`plan`), Qwen3-Coder-30B (`coder-old`), Qwen2.5-Coder-14B (`coder-14b`), Qwen3-14B (`qwen3-14b`), Qwen3-VL-30B, embedding nomic. Classifiche e benchmark qui sotto restano come misure storiche.
 
 ## Classifica per ruolo
 

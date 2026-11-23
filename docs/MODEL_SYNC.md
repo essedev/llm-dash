@@ -76,6 +76,6 @@ Chiudi con una tabella: per ogni modello → tier assegnato, azione (added/remov
 
 ## Note
 
-- Lo stato attuale (giugno 2026): 4 profili `default` + 4 `other` (`coder-14b`, `qwen35-9b`, `qwen3-14b`, `qwen38`); Qwen3-VL, gemma-4-E4B (GGUF) ed embedding restano fuori dai profili. Dettaglio in [MODELS.md](MODELS.md).
+- Lo stato attuale (novembre 2026): 1 profilo `default` (`coder`, anche `server.default_profile`) + 2 `other` (`qwen35-9b`, `qwen38`); gemma-4-E4B (GGUF) resta fuori dai profili. Se togli il modello di `server.default_profile`, scegline un altro: `llm-up` senza argomenti lo usa. Dettaglio in [MODELS.md](MODELS.md).
 - Se aggiungi una famiglia nuova come `default`, verifica prima che `mlx_lm.server` ne parsi i tool: lancia il server e fai una chiamata con un tool, controlla che il tool_call venga emesso. I findings in [EVALS.md](EVALS.md) elencano cosa è parsato e cosa no.
 - Per aggiungere un modello basta editare `config/llm-dash.toml`: `bin/llm-serve` e `main.py` lo leggono a runtime. Non serve toccare il codice.

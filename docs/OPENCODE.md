@@ -16,18 +16,18 @@ Esempio in `config/opencode.json.example`. Sostituisci `/Users/doppia` con il tu
       "name": "mlx_lm.server (porta 1234)",
       "options": { "baseURL": "http://127.0.0.1:1234/v1" },
       "models": {
-        "/Users/doppia/.lmstudio/models/lmstudio-community/GLM-4.7-Flash-MLX-4bit": {
-          "name": "GLM-4.7-Flash (build default)",
+        "/Users/doppia/.lmstudio/models/unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit": {
+          "name": "Qwen3.6-35B-A3B (coder default)",
           "limit": { "context": 65536, "output": 8192 }
         },
-        "/Users/doppia/.lmstudio/models/unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit": {
-          "name": "Qwen3.6-35B-A3B (deeper coding)",
+        "/Users/doppia/.lmstudio/models/lmstudio-community/Qwen3.8-27B-MLX-4bit": {
+          "name": "Qwen3.8-27B (altri - dense, ~7 t/s)",
           "limit": { "context": 65536, "output": 8192 }
         }
       }
     }
   },
-  "model": "mlx//Users/doppia/.lmstudio/models/lmstudio-community/GLM-4.7-Flash-MLX-4bit"
+  "model": "mlx//Users/doppia/.lmstudio/models/unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit"
 }
 ```
 
@@ -44,7 +44,7 @@ Esempio in `config/opencode.json.example`. Sostituisci `/Users/doppia` con il tu
 
 ```bash
 # 1. Server up
-llm-up build                    # GLM-4.7 attivo
+llm-up                          # profilo default (coder, Qwen3.6)
 
 # 2. Vai in un progetto e lancia opencode
 cd ~/Development/Yellow/qualche-progetto
@@ -60,26 +60,14 @@ opencode parla sempre con `http://127.0.0.1:1234`. Per cambiare modello durante 
 
 ```bash
 # Da un altro terminale (o dalla dashboard web cliccando su un profile):
-llm-switch coder                # ferma GLM, parte Qwen3.6 (~10-30s)
+llm-switch qwen38               # ferma Qwen3.6, parte Qwen3.8-27B (~10-30s)
 ```
 
 opencode ricaricherà i model sul prossimo request. Se `opencode.json` ha tutti i modelli registrati nel provider, basta selezionarne uno diverso dalla UI di opencode (o riavviare opencode).
 
-### Workflow planning → build
+### Planning
 
-Per task seri, due fasi:
-
-```bash
-# Fase 1: planning (modello dedicato, non spreca token in coding)
-llm-switch plan                 # Qwen3-30B-Instruct
-opencode                        # → "Analizza questo modulo e proponi un piano di refactor"
-
-# Fase 2: implementazione
-llm-switch build                # GLM-4.7
-opencode                        # → "Implementa il punto 2 del piano"
-```
-
-Note: opencode ha il concetto di "agent profiles" (`agent.plan`, `agent.build`) ma per ora con un solo server attivo non li uso esplicitamente. Vado manualmente.
+Con un solo profilo agentico su disco non c'è più un modello dedicato al planning: si usa `coder` con thinking attivo (`enable_thinking = true`, override con `THINK=false llm-up`), che ragiona prima di rispondere.
 
 ## Integrazione MCP
 

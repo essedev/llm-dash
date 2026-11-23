@@ -10,7 +10,7 @@ make models         # elenca i profili avviabili
 make dev            # dashboard in foreground (1230)
 make dash           # dashboard in background
 make status         # server attivo + memoria
-llm-up <profile>    # avvia mlx_lm.server (default: build)
+llm-up [profile]    # avvia mlx_lm.server (default: server.default_profile in config/llm-dash.toml)
 llm-switch <profile># cambia modello (kill + restart)
 llm-down            # ferma tutto
 ```
