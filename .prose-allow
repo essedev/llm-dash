@@ -1,2 +1,5 @@
 # Paths allowed to contain Italian prose, one glob per line, each with a comment saying why.
-# README.it.md is allowed by default. No other exceptions for now.
+# README.it.md is allowed by default.
+
+# The checker itself: its comments quote the Italian word list it detects.
+scripts/check-prose.py

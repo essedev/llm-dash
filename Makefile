@@ -60,9 +60,13 @@ down: ## Stop the full stack (LLM + dashboard + tmux session)
 status: ## Runtime status (active server + memory)
 	@curl -s http://127.0.0.1:1230/api/status 2>/dev/null | python3 -m json.tool || echo "dashboard offline, run: make up"
 
+lint: ## Prose language check + Python docstring gate
+	python3 scripts/check-prose.py
+	uv run ruff check
+
 clean: ## Remove build caches
 	rm -rf static/output.css node_modules/.cache .venv/__pycache__ __pycache__
 
 setup: install build-css ## Full setup: symlink scripts + build CSS
 
-.PHONY: help install install-check build-css watch-css dev dash dash-stop models llm-up llm-down up down status clean setup
+.PHONY: help lint install install-check build-css watch-css dev dash dash-stop models llm-up llm-down up down status clean setup

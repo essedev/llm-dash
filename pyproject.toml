@@ -12,3 +12,18 @@ dependencies = [
     "sse-starlette>=3.4.1",
     "uvicorn>=0.46.0",
 ]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.17.6",
+]
+
+# Docstring gate: every module and public function documented (make lint).
+[tool.ruff]
+include = ["main.py", "bin/_config.py"]
+
+[tool.ruff.lint]
+select = ["D100", "D103"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
