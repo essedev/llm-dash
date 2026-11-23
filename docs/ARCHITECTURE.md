@@ -95,7 +95,7 @@ L'utente vuole "leggera ma completa" - non vuole infrastruttura React/Vite/npm w
 
 ### Stack scelto
 
-- **Tailwind v4 buildato** via pnpm CLI (`pnpm run build`). CSS-first via `@theme` come progetti Yellow. Output minificato `static/output.css` ~18 KB.
+- **Tailwind v4 buildato** via pnpm CLI (`pnpm run build`). CSS-first via `@theme`. Output minificato `static/output.css` ~18 KB.
 - **Alpine.js 3.14** (~17 KB) come asset statico (no CDN). Reattività + state via `x-data`, `x-text`, `x-show`, eventi DOM custom (`conv:select`, `conv:new`, `conv:list`).
 - **marked.js** per markdown + **highlight.js** per syntax highlighting come asset statici.
 - **Geist + JetBrains Mono** via Google Fonts (caching browser).

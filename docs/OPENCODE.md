@@ -4,7 +4,7 @@
 
 Il file `~/.config/opencode/opencode.json` punta a mlx_lm.server come provider locale OpenAI-compatible.
 
-Esempio in `config/opencode.json.example`. Sostituisci `/Users/doppia` con il tuo `$HOME` se diverso.
+Esempio in `config/opencode.json.example`. Sostituisci `/Users/you` con il tuo `$HOME`.
 
 ## Provider config
 
@@ -16,18 +16,18 @@ Esempio in `config/opencode.json.example`. Sostituisci `/Users/doppia` con il tu
       "name": "mlx_lm.server (porta 1234)",
       "options": { "baseURL": "http://127.0.0.1:1234/v1" },
       "models": {
-        "/Users/doppia/.lmstudio/models/unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit": {
+        "/Users/you/.lmstudio/models/unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit": {
           "name": "Qwen3.6-35B-A3B (coder default)",
           "limit": { "context": 65536, "output": 8192 }
         },
-        "/Users/doppia/.lmstudio/models/lmstudio-community/Qwen3.8-27B-MLX-4bit": {
+        "/Users/you/.lmstudio/models/lmstudio-community/Qwen3.8-27B-MLX-4bit": {
           "name": "Qwen3.8-27B (altri - dense, ~7 t/s)",
           "limit": { "context": 65536, "output": 8192 }
         }
       }
     }
   },
-  "model": "mlx//Users/doppia/.lmstudio/models/unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit"
+  "model": "mlx//Users/you/.lmstudio/models/unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit"
 }
 ```
 
@@ -47,7 +47,7 @@ Esempio in `config/opencode.json.example`. Sostituisci `/Users/doppia` con il tu
 llm-up                          # profilo default (coder, Qwen3.6)
 
 # 2. Vai in un progetto e lancia opencode
-cd ~/Development/Yellow/qualche-progetto
+cd ~/code/qualche-progetto
 opencode
 
 # Ora hai un'agent CLI che parla con il modello locale
@@ -93,13 +93,13 @@ Tool calling con modelli locali funziona, ma **non è infallibile come Claude So
 - **Marginali**: chain di 5+ tool call con stato condiviso
 - **Difficili**: error recovery in loop multi-step, decisione complessa "ho abbastanza info per rispondere?"
 
-Per task agentici lunghi e critici (es. refactor su clienti Yellow), Claude API resta preferibile. Locale è ottimo per: brainstorm, prototipi personali, esperimenti.
+Per task agentici lunghi e critici (es. refactor su progetti di lavoro), Claude API resta preferibile. Locale è ottimo per: brainstorm, prototipi personali, esperimenti.
 
 ## Strategia mista cloud + locale
 
 | Caso d'uso | Tool |
 |---|---|
-| Coding agentic Yellow client (paid) | Claude Code + Anthropic API |
+| Coding agentico su progetti di lavoro | Claude Code + Anthropic API |
 | Sperimentazione personale | opencode + locale |
 | Brainstorm architettura | opencode + Qwen3-Instruct locale |
 | Refactor critico multi-file | Claude Code API |

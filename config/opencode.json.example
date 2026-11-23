@@ -1,6 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "_comment": "Config per opencode con backend mlx_lm.server. Sostituisci '/Users/doppia' con il tuo $HOME se diverso.",
+  "_comment": "Config per opencode con backend mlx_lm.server. Sostituisci '/Users/you' con il tuo $HOME.",
   "mcp": {
     "context7": {
       "type": "remote",
@@ -18,20 +18,20 @@
         "baseURL": "http://127.0.0.1:1234/v1"
       },
       "models": {
-        "/Users/doppia/.lmstudio/models/unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit": {
+        "/Users/you/.lmstudio/models/unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit": {
           "name": "Qwen3.6-35B-A3B (coder default)",
           "limit": { "context": 65536, "output": 8192 }
         },
-        "/Users/doppia/.lmstudio/models/mlx-community/Qwen3.5-9B-MLX-4bit": {
+        "/Users/you/.lmstudio/models/mlx-community/Qwen3.5-9B-MLX-4bit": {
           "name": "Qwen3.5-9B (altri - piccolo)",
           "limit": { "context": 32768, "output": 8192 }
         },
-        "/Users/doppia/.lmstudio/models/lmstudio-community/Qwen3.8-27B-MLX-4bit": {
+        "/Users/you/.lmstudio/models/lmstudio-community/Qwen3.8-27B-MLX-4bit": {
           "name": "Qwen3.8-27B (altri - dense, ~7 t/s)",
           "limit": { "context": 65536, "output": 8192 }
         }
       }
     }
   },
-  "model": "mlx//Users/doppia/.lmstudio/models/unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit"
+  "model": "mlx//Users/you/.lmstudio/models/unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit"
 }
