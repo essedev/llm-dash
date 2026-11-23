@@ -1,7 +1,8 @@
 [project]
 name = "llm-dash"
 version = "0.1.0"
-description = "Add your description here"
+description = "Control panel and web chat for local LLMs on Apple Silicon, on top of mlx_lm.server"
+license = "MIT"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.136.1",
