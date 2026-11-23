@@ -127,22 +127,15 @@ while (true) {
 }
 ```
 
-Ogni token arriva immediatamente. Visualizzazione progressiva, scrolling con `$nextTick + requestAnimationFrame` per allineare DOM Alpine + scroll.
+Ogni token arriva immediatamente e il render è limitato a uno per frame (`_scheduleRender`): i token che arrivano in raffica collassano in un render solo. DOM, evidenziazione e scroll si aggiornano nello stesso `requestAnimationFrame`. Non si passa da `$nextTick`, che in Alpine è un `setTimeout` e spezzerebbe l'aggiornamento su paint diversi.
 
-**Render markdown durante lo streaming**: il testo in arrivo viene parsato a ogni frame
-(`_scheduleRender`), non tenuto come testo plain fino a `done`. Due accorgimenti che
-servono entrambi:
+**Render markdown durante lo streaming** (`StreamRenderer`): il testo è markdown a metà, e l'obiettivo è che il box cresca senza mai accorciarsi.
 
-- `closeOpenFences()` chiude i recinti ``` dispari solo ai fini del render. Senza, un
-  blocco di codice ancora aperto inghiotte tutto il resto della risposta e all'utente
-  sembra che il testo sia sparito.
-- L'evidenziazione salta l'ultimo blocco finché la generazione è in corso
-  (`enhanceCode(root, skipLast)`): ri-evidenziare a ogni token codice sintatticamente
-  incompleto costa e fa lampeggiare i colori. Alla chiusura del messaggio viene
-  evidenziato anche quello.
-
-Il parse è limitato a uno per frame, quindi i token che arrivano in raffica collassano
-in un render solo.
+- **Incrementale**: `marked.lexer` divide il testo in blocchi di primo livello. I blocchi già chiusi entrano nel DOM una volta sola, già evidenziati e col bottone copia; a ogni frame si riscrive solo l'ultimo. Un blocco chiuso resta valido finché il suo `raw` è prefisso dei token nuovi (una riga indentata può riaprire la lista di prima) e finché non cambiano le definizioni `[ref]: url`; altrimenti si rifà da lì. Sostituire tutto l'HTML a ogni frame ricreava anche i blocchi chiusi, rievidenziati dopo il paint, con costo quadratico sulla lunghezza.
+- `closeOpenFences()` chiude virtualmente il recinto aperto, con le regole di CommonMark (dentro un blocco solo una riga di soli backtick o tilde, lunga almeno quanto l'apertura, lo chiude). Senza, un blocco di codice ancora aperto inghiotte il resto della risposta.
+- `dropPartialLine()` nasconde l'ultima riga finché non arriva il suo a capo, se è sintassi che cambia la struttura del blocco sopra: uno o due backtick, una sottolineatura `===`/`---`, il separatore di una tabella. Mostrata così com'è comparirebbe come testo e sparirebbe al token dopo.
+- L'ultimo blocco non viene evidenziato finché è in scrittura: lo fa il bubble definitivo alla chiusura del messaggio, via `x-init` con `queueMicrotask` (prima del paint).
+- Il cursore è uno `<span class="stream-cursor">` messo in coda all'ultima riga di testo; non entra in codice, tabelle e `<hr>`.
 
 **Aggancio al fondo**: la chat segue la generazione solo finché l'utente resta entro
 `STICK_THRESHOLD_PX` (120px) dal fondo. Sopra quella distanza l'aggancio si stacca e lo
@@ -242,7 +235,8 @@ Vedi `src/input.css` per i token CSS completi.
 | `.pressure-badge` | pill low/medium/high per la pressione memoria |
 | `.dot-legend` | quadratino legenda per la stack-meter |
 | `.bubble-user` / `.bubble-asst` | bubble chat |
-| `.markdown-body.streaming` | risposta in corso, renderizzata come markdown; il cursore è un `::after` sull'ultimo elemento, così resta in linea col testo invece di andare a capo |
+| `.markdown-body.streaming` | risposta in corso, renderizzata come markdown da `StreamRenderer` |
+| `.stream-cursor` | cursore dello streaming, inserito in coda all'ultima riga di testo così non occupa mai una riga sua |
 | `.code-copy` | bottone copia sul blocco di codice (opacity 0.35 → 1 in hover, stati `.ok` / `.err` per 1,5s) |
 | `.jump-bottom` | pill flottante "torna in fondo", visibile solo quando l'aggancio si è staccato |
 | `.btn-accent` | call-to-action lime (Transmit) - flex-center, min-width per evitare jump fra label diverse |

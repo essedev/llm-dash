@@ -394,7 +394,11 @@
     border: 1px solid var(--color-line);
     border-left: 2px solid var(--color-accent-dim);
   }
+  /* display:block come fa il tema di highlight.js: da inline, ogni riga del blocco
+     prenderebbe l'interlinea del testo (23px invece di 19) e il box si accorcerebbe
+     di colpo nel momento in cui il blocco viene evidenziato. */
   .markdown-body pre code {
+    display: block;
     background: transparent;
     padding: 0;
     color: var(--color-fg);
@@ -431,9 +435,9 @@
     margin: 1em 0;
   }
 
-  /* Cursore attaccato all'ultimo elemento generato, non su una riga sua. */
-  .markdown-body.streaming > *:last-child::after {
-    content: '▌';
+  /* Cursore dello streaming: lo inserisce StreamRenderer in coda all'ultima riga
+     di testo, così non occupa mai una riga sua. */
+  .stream-cursor {
     color: var(--color-accent);
     margin-left: 2px;
     animation: cursor-blink 1s step-end infinite;

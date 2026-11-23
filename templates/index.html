@@ -354,9 +354,11 @@
           <template x-if="m.role === 'assistant'">
             <div class="max-w-[88%]">
               <div class="bubble-asst-tag">Assistant</div>
+              <!-- queueMicrotask, non $nextTick: in Alpine è un setTimeout e il codice
+                   verrebbe dipinto una volta senza evidenziazione. -->
               <div class="bubble-asst markdown-body"
                    x-html="renderMd(m.content)"
-                   x-init="$nextTick(() => enhanceCode($el))"></div>
+                   x-init="queueMicrotask(() => enhanceCode($el))"></div>
             </div>
           </template>
         </div>
@@ -367,7 +369,7 @@
           <div class="bubble-asst-tag" x-text="streamBuf ? 'Assistant' : 'Routing prompt'">Assistant</div>
           <div class="bubble-asst">
             <template x-if="streamBuf">
-              <div class="markdown-body streaming" x-ref="streamBox" x-html="streamHtml"></div>
+              <div class="markdown-body streaming" x-ref="streamBox"></div>
             </template>
             <template x-if="!streamBuf">
               <div class="typing-dots"><span></span><span></span><span></span></div>

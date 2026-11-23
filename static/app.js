@@ -84,15 +84,149 @@ function renderMd(text) {
 
 // Durante lo streaming il testo è markdown a metà: un ``` ancora aperto
 // inghiottirebbe tutto il resto in un blocco di codice, e la risposta sembrerebbe
-// sparita. Chiudo virtualmente i recinti dispari solo per il render.
+// sparita. Chiudo virtualmente il recinto aperto solo per il render.
+// Le regole sono quelle di CommonMark: dentro un blocco aperto solo una riga di
+// soli backtick (o tilde), lunga almeno quanto l'apertura, lo chiude; una riga
+// come ```js è contenuto, non un recinto. Se il testo finisce già con un a capo
+// la chiusura va attaccata: un "\n" in più sarebbe una riga vuota nel codice
+// che sparisce quando arriva la chiusura vera, e il box si accorcia.
 function closeOpenFences(text) {
-  const fences = (text.match(/^```/gm) || []).length;
-  return fences % 2 === 1 ? text + '\n```' : text;
+  let open = null;
+  for (const line of text.split('\n')) {
+    const m = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+    if (!m) continue;
+    const [, fence, rest] = m;
+    if (!open) {
+      if (fence[0] === '`' && rest.includes('`')) continue; // backtick inline, non un recinto
+      open = fence;
+    } else if (fence[0] === open[0] && fence.length >= open.length && !rest.trim()) {
+      open = null;
+    }
+  }
+  if (!open) return text;
+  return text + (text.endsWith('\n') ? '' : '\n') + open;
 }
 
-function renderMdStream(text) {
-  return renderMd(closeOpenFences(text || ''));
+// L'ultima riga, finché non arriva il suo a capo, può essere un pezzo di sintassi
+// che cambia la struttura del blocco sopra: uno o due backtick (recinto in
+// scrittura), una sottolineatura === / --- (il paragrafo diventa titolo, due righe
+// che diventano una) o il separatore di una tabella (le righe diventano intestazione).
+// Renderizzata così com'è comparirebbe come testo e sparirebbe al token dopo,
+// accorciando il box: la mostro solo quando è completa.
+const PARTIAL_LINE = [
+  /^ {0,3}`{1,2}$/,
+  /^ {0,3}(=+|-+) *$/,
+  /^ {0,3}[|:\- ]*\|[|:\- ]*$/,
+];
+function dropPartialLine(text) {
+  const i = text.lastIndexOf('\n');
+  const last = text.slice(i + 1);
+  return PARTIAL_LINE.some(re => re.test(last)) ? text.slice(0, i + 1) : text;
 }
+
+function htmlToFragment(html) {
+  const t = document.createElement('template');
+  t.innerHTML = html;
+  return t.content;
+}
+
+// Render incrementale della risposta in arrivo. Riparsare e sostituire tutto
+// l'HTML a ogni frame ricrea anche i blocchi già chiusi: perdono evidenziazione
+// e bottone copia, si rievidenziano in un task successivo (dopo il paint) e il
+// costo cresce col quadrato della lunghezza. Qui i blocchi di primo livello già
+// chiusi entrano nel DOM una volta sola, già evidenziati; a ogni frame si
+// riscrive solo l'ultimo, l'unico che può ancora cambiare.
+class StreamRenderer {
+  constructor(root) {
+    this.root = root;
+    this.committed = []; // [{raw, nodes}] in ordine di documento
+    this.tail = [];      // nodi dell'ultimo blocco, riscritti a ogni update
+    this.links = '{}';   // definizioni [ref]: url viste all'ultimo update
+  }
+
+  update(text) {
+    if (typeof window.marked === 'undefined') {
+      this.root.textContent = text;
+      return;
+    }
+    let tokens;
+    try {
+      tokens = window.marked.lexer(closeOpenFences(dropPartialLine(text)));
+    } catch (e) {
+      this.reset();
+      this.root.textContent = text;
+      return;
+    }
+    const stable = Math.max(tokens.length - 1, 0);
+
+    // Una definizione [ref]: url arrivata (o allungata) adesso cambia i link dei
+    // blocchi già chiusi senza cambiarne il raw: in quel caso si rifà tutto.
+    const links = JSON.stringify(tokens.links || {});
+    if (links !== this.links) {
+      this.links = links;
+      for (const c of this.committed.splice(0)) c.nodes.forEach(n => n.remove());
+    }
+
+    // Un blocco chiuso può ancora riaprirsi (una riga indentata dopo una riga
+    // vuota allunga la lista di prima): i commit valgono finché il loro raw è
+    // ancora un prefisso dei token nuovi, da lì in poi si rifanno.
+    let same = 0;
+    while (same < this.committed.length && same < stable
+           && this.committed[same].raw === tokens[same].raw) same++;
+    for (const c of this.committed.splice(same)) c.nodes.forEach(n => n.remove());
+
+    this._clearTail();
+    for (let i = same; i < stable; i++) {
+      const frag = htmlToFragment(window.marked.parser([tokens[i]]));
+      enhanceCode(frag);
+      const nodes = Array.from(frag.childNodes);
+      this.root.appendChild(frag);
+      this.committed.push({raw: tokens[i].raw, nodes});
+    }
+    const frag = htmlToFragment(window.marked.parser(tokens.slice(stable)));
+    this.tail = Array.from(frag.childNodes);
+    this.root.appendChild(frag);
+    this._placeCursor();
+  }
+
+  // Il cursore va in coda al testo dell'ultimo blocco, dentro la stessa riga.
+  // Un ::after sull'ultimo figlio finirebbe su una riga sua sotto un blocco di
+  // codice, una lista o una tabella, e quella riga sparirebbe al blocco dopo.
+  // Dentro codice, tabelle e righe orizzontali il cursore non va: lì il blocco
+  // che cresce basta a far vedere che la generazione è in corso.
+  _placeCursor() {
+    if (!this.cursor) {
+      this.cursor = document.createElement('span');
+      this.cursor.className = 'stream-cursor';
+      this.cursor.setAttribute('aria-hidden', 'true');
+      this.cursor.textContent = '▌';
+    }
+    this.cursor.remove();
+    let el = this.root.lastElementChild;
+    while (el && el.lastElementChild && CURSOR_DESCEND.has(el.lastElementChild.tagName)) {
+      el = el.lastElementChild;
+    }
+    if (el && !CURSOR_SKIP.has(el.tagName)) el.appendChild(this.cursor);
+  }
+
+  _clearTail() {
+    this.tail.forEach(n => n.remove());
+    this.tail = [];
+  }
+
+  reset() {
+    this.committed = [];
+    this.tail = [];
+    this.links = '{}';
+    this.root.replaceChildren();
+  }
+}
+
+// Blocchi in cui il cursore scende per arrivare all'ultima riga di testo, e
+// blocchi in cui non entra.
+const CURSOR_DESCEND = new Set(['UL', 'OL', 'LI', 'BLOCKQUOTE', 'P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6',
+                                'PRE', 'TABLE', 'HR']);
+const CURSOR_SKIP = new Set(['PRE', 'TABLE', 'HR']);
 
 function makeCopyButton(code) {
   const btn = document.createElement('button');
@@ -119,15 +253,14 @@ function makeCopyButton(code) {
 }
 
 // Evidenziazione + bottone copia sui blocchi di codice già renderizzati.
-// `skipLast` lascia stare il blocco ancora in scrittura: evidenziarlo a ogni token
-// costa e fa sfarfallare i colori su codice sintatticamente incompleto.
-function enhanceCode(root, skipLast) {
+// Durante lo streaming non tocca il blocco ancora in scrittura (StreamRenderer
+// lo passa solo per i blocchi chiusi): evidenziarlo a ogni token costerebbe e
+// farebbe sfarfallare i colori su codice sintatticamente incompleto.
+function enhanceCode(root) {
   if (!root) return;
-  const blocks = Array.from(root.querySelectorAll('pre > code'));
-  blocks.forEach((code, i) => {
+  root.querySelectorAll('pre > code').forEach((code) => {
     const pre = code.parentElement;
     if (pre.dataset.enhanced === '1') return;
-    if (skipLast && i === blocks.length - 1) return;
     pre.dataset.enhanced = '1';
     pre.classList.add('code-wrap');
     if (window.hljs) {
@@ -273,7 +406,6 @@ function chat() {
     input: '',
     streaming: false,
     streamBuf: '',
-    streamHtml: '',
     stuck: true,
     lastStats: {tps:null, tokens:0, elapsed:0},
     lastUsage: {prompt_tokens:0, completion_tokens:0},
@@ -357,7 +489,7 @@ function chat() {
       window.dispatchEvent(new CustomEvent('conv:list'));
     },
 
-    renderMd, renderMdStream, escapeHtml, enhanceCode,
+    renderMd, escapeHtml, enhanceCode,
 
     // Aggancio al fondo: seguo la generazione finché l'utente resta entro la soglia.
     // Se scrolla più su mi sgancio e smetto di trascinarlo giù; quando rientra
@@ -395,14 +527,21 @@ function chat() {
     },
 
     // Il markdown del testo in arrivo si riparsa al massimo una volta per frame:
-    // i token che arrivano in raffica collassano in un solo render.
+    // i token che arrivano in raffica collassano in un solo render. DOM, codice
+    // evidenziato e scroll si aggiornano nello stesso frame: passare da $nextTick
+    // (che in Alpine è un setTimeout) li spezzerebbe su paint diversi.
     _scheduleRender() {
       if (this._renderPending) return;
       this._renderPending = true;
       requestAnimationFrame(() => {
         this._renderPending = false;
-        this.streamHtml = renderMdStream(this.streamBuf);
-        this.$nextTick(() => enhanceCode(this.$refs.streamBox, true));
+        const box = this.$refs.streamBox;
+        if (!this.streamBuf || !box) return;
+        // Il renderer vive sull'elemento: x-if lo ricrea a ogni risposta nuova,
+        // e fuori dallo stato Alpine i nodi DOM non finiscono in un proxy reattivo.
+        if (!box._stream) box._stream = new StreamRenderer(box);
+        box._stream.update(this.streamBuf);
+        this._scrollBottom();
       });
     },
 
@@ -413,7 +552,6 @@ function chat() {
       this.messages.push({role:'user', content:text});
       this.input = '';
       this.streamBuf = '';
-      this.streamHtml = '';
       this.streaming = true;
       this._abort = new AbortController();
       this.persist();
@@ -454,7 +592,6 @@ function chat() {
           this.streaming = false;
           this._abort = null;
           this.streamBuf = '';
-          this.streamHtml = '';
           this._discardStream = false;
           return;
         }
@@ -506,7 +643,6 @@ function chat() {
       if (event === 'token') {
         this.streamBuf += data;
         this._scheduleRender();
-        this._scheduleScroll();
       } else if (event === 'done') {
         try {
           const stats = JSON.parse(data);
@@ -526,14 +662,12 @@ function chat() {
     flush() {
       if (this.streamBuf) this.messages.push({role:'assistant', content: this.streamBuf});
       this.streamBuf = '';
-      this.streamHtml = '';
       this.streaming = false;
       this._abort = null;
       this.persist();
+      // Il messaggio chiuso diventa un bubble normale: evidenziazione e bottone
+      // copia li mette il suo x-init, anche sull'ultimo blocco saltato in streaming.
       this._scheduleScroll();
-      // Il messaggio appena chiuso è ora un blocco normale: evidenzia anche
-      // l'ultimo recinto di codice, che durante lo streaming era stato saltato.
-      this.$nextTick(() => enhanceCode(this.$refs.msgs));
     },
 
     // Token count: usa il valore reale dell'ultimo round-trip se disponibile,
