@@ -1,10 +1,10 @@
-# Integrazione opencode
+# opencode integration
 
 ## Setup
 
-Il file `~/.config/opencode/opencode.json` punta a mlx_lm.server come provider locale OpenAI-compatible.
+The file `~/.config/opencode/opencode.json` points to mlx_lm.server as a local OpenAI-compatible provider.
 
-Esempio in `config/opencode.json.example`. Sostituisci `/Users/you` con il tuo `$HOME`.
+Example in `config/opencode.json.example`. Replace `/Users/you` with your `$HOME`.
 
 ## Provider config
 
@@ -13,7 +13,7 @@ Esempio in `config/opencode.json.example`. Sostituisci `/Users/you` con il tuo `
   "provider": {
     "mlx": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "mlx_lm.server (porta 1234)",
+      "name": "mlx_lm.server (port 1234)",
       "options": { "baseURL": "http://127.0.0.1:1234/v1" },
       "models": {
         "/Users/you/.lmstudio/models/unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit": {
@@ -21,7 +21,7 @@ Esempio in `config/opencode.json.example`. Sostituisci `/Users/you` con il tuo `
           "limit": { "context": 65536, "output": 8192 }
         },
         "/Users/you/.lmstudio/models/lmstudio-community/Qwen3.8-27B-MLX-4bit": {
-          "name": "Qwen3.8-27B (altri - dense, ~7 t/s)",
+          "name": "Qwen3.8-27B (others - dense, ~7 t/s)",
           "limit": { "context": 65536, "output": 8192 }
         }
       }
@@ -31,47 +31,47 @@ Esempio in `config/opencode.json.example`. Sostituisci `/Users/you` con il tuo `
 }
 ```
 
-### Note importanti
+### Important notes
 
-- **I model ID sono path completi** del filesystem. È perché mlx_lm.server espone i modelli con quell'ID nel `/v1/models` e si aspetta il path nei body request. Brutto ma funzionale.
-- **Context limit 64k** allineato a quanto regge il sistema con un modello 16-20 GB caricato.
-- **Output limit 8192** standard per generazione lunga (refactor, code generation).
-- Il `model` di default è la stringa `<provider>/<model_id>`, quindi `mlx//Users/...` (doppio slash perché il path inizia con `/`).
+- **Model IDs are full filesystem paths.** This is because mlx_lm.server exposes models with that ID in `/v1/models` and expects the path in request bodies. Ugly but functional.
+- **Context limit 64k**, aligned with what the system sustains with a 16-20 GB model loaded.
+- **Output limit 8192**, standard for long generation (refactors, code generation).
+- The default `model` is the string `<provider>/<model_id>`, hence `mlx//Users/...` (double slash because the path starts with `/`).
 
-## Workflow tipico
+## Typical workflow
 
-### Il caso comune
+### The common case
 
 ```bash
 # 1. Server up
-llm-up                          # profilo default (coder, Qwen3.6)
+llm-up                          # default profile (coder, Qwen3.6)
 
-# 2. Vai in un progetto e lancia opencode
-cd ~/code/qualche-progetto
+# 2. Go to a project and launch opencode
+cd ~/code/some-project
 opencode
 
-# Ora hai un'agent CLI che parla con il modello locale
+# Now you have an agent CLI talking to the local model
 # Tool calling, file edit, terminal commands
 ```
 
-### Switch modello durante una sessione
+### Switching model during a session
 
-opencode parla sempre con `http://127.0.0.1:1234`. Per cambiare modello durante una sessione:
+opencode always talks to `http://127.0.0.1:1234`. To change model during a session:
 
 ```bash
-# Da un altro terminale (o dalla dashboard web cliccando su un profile):
-llm-switch qwen38               # ferma Qwen3.6, parte Qwen3.8-27B (~10-30s)
+# From another terminal (or from the web dashboard by clicking a profile):
+llm-switch qwen38               # stops Qwen3.6, starts Qwen3.8-27B (~10-30s)
 ```
 
-opencode ricaricherà i model sul prossimo request. Se `opencode.json` ha tutti i modelli registrati nel provider, basta selezionarne uno diverso dalla UI di opencode (o riavviare opencode).
+opencode will reload the models on the next request. If `opencode.json` has all the models registered in the provider, just select a different one from the opencode UI (or restart opencode).
 
 ### Planning
 
-Con un solo profilo agentico su disco non c'è più un modello dedicato al planning: si usa `coder` con thinking attivo (`enable_thinking = true`, override con `THINK=false llm-up`), che ragiona prima di rispondere.
+With a single agentic profile on disk there is no longer a model dedicated to planning: use `coder` with thinking on (`enable_thinking = true`, override with `THINK=false llm-up`), which reasons before answering.
 
-## Integrazione MCP
+## MCP integration
 
-Il provider opencode include il MCP server `context7` per accedere alle docs ufficiali delle librerie:
+The opencode provider includes the `context7` MCP server to access the official library docs:
 
 ```json
 "mcp": {
@@ -83,40 +83,40 @@ Il provider opencode include il MCP server `context7` per accedere alle docs uff
 }
 ```
 
-Il modello locale (GLM-4.7 e Qwen3.6 supportano tool calling) può usare `context7.search-docs` per recuperare documentazione di librerie aggiornate (es. Tailwind v4, FastAPI nuove API).
+The local model (GLM-4.7 and Qwen3.6 support tool calling) can use `context7.search-docs` to fetch up-to-date library documentation (e.g. Tailwind v4, new FastAPI APIs).
 
-## Caveat su tool calling locale
+## Caveats on local tool calling
 
-Tool calling con modelli locali funziona, ma **non è infallibile come Claude Sonnet 4.5+**. Aspettati:
+Tool calling with local models works, but **it is not as reliable as Claude Sonnet 4.5+**. Expect:
 
-- **Buone**: tool call singoli, parametri JSON corretti, parallel calls (2-3 tool insieme)
-- **Marginali**: chain di 5+ tool call con stato condiviso
-- **Difficili**: error recovery in loop multi-step, decisione complessa "ho abbastanza info per rispondere?"
+- **Good**: single tool calls, correct JSON parameters, parallel calls (2-3 tools together)
+- **Marginal**: chains of 5+ tool calls with shared state
+- **Hard**: error recovery in multi-step loops, the complex decision "do I have enough info to answer?"
 
-Per task agentici lunghi e critici (es. refactor su progetti di lavoro), Claude API resta preferibile. Locale è ottimo per: brainstorm, prototipi personali, esperimenti.
+For long, critical agentic tasks (e.g. refactors on work projects), the Claude API remains preferable. Local is great for: brainstorming, personal prototypes, experiments.
 
-## Strategia mista cloud + locale
+## Mixed cloud + local strategy
 
-| Caso d'uso | Tool |
+| Use case | Tool |
 |---|---|
-| Coding agentico su progetti di lavoro | Claude Code + Anthropic API |
-| Sperimentazione personale | opencode + locale |
-| Brainstorm architettura | opencode + Qwen3-Instruct locale |
-| Refactor critico multi-file | Claude Code API |
-| "Spiegami questa libreria" | opencode + GLM-4.7 + context7 MCP |
-| Inline autocomplete editor | locale (Gemma-E4B) |
+| Agentic coding on work projects | Claude Code + Anthropic API |
+| Personal experimentation | opencode + local |
+| Architecture brainstorming | opencode + local Qwen3-Instruct |
+| Critical multi-file refactor | Claude Code API |
+| "Explain this library to me" | opencode + GLM-4.7 + context7 MCP |
+| Inline editor autocomplete | local (Gemma-E4B) |
 
-Locale = privacy, gratis, offline. Cloud = qualità top, affidabilità tool calling, latenza bassa.
+Local = privacy, free, offline. Cloud = top quality, tool calling reliability, low latency.
 
-## Debug opencode + locale
+## Debugging opencode + local
 
-Se opencode non vede i modelli:
+If opencode does not see the models:
 
-1. **Verifica server attivo**: `curl http://127.0.0.1:1234/v1/models`
-2. **Verifica path nel config**: il model ID deve matchare ESATTAMENTE quello che il server espone
-3. **Logs server**: `tmux attach -t llm` (se avviato via `llm-up` con tmux)
-4. **Logs opencode**: lancia opencode con `--debug` o controlla `~/.config/opencode/logs/`
+1. **Check the server is up**: `curl http://127.0.0.1:1234/v1/models`
+2. **Check the path in the config**: the model ID must match EXACTLY what the server exposes
+3. **Server logs**: `tmux attach -t llm` (if started via `llm-up` with tmux)
+4. **opencode logs**: launch opencode with `--debug` or check `~/.config/opencode/logs/`
 
-Se tool calling fallisce:
-- Verifica che il context window in `opencode.json` sia ≥ 64k (sotto, opencode tronca tool result e rompe il loop)
-- Verifica che `THINK=false` (default da `config/llm-dash.toml` per build/coder, letto via `_config.py`)
+If tool calling fails:
+- Check that the context window in `opencode.json` is ≥ 64k (below that, opencode truncates tool results and breaks the loop)
+- Check that `THINK=false` (default from `config/llm-dash.toml` for build/coder, read via `_config.py`)

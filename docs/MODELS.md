@@ -1,87 +1,87 @@
-# Modelli - Catalogo, Classifica, Benchmark
+# Models: Catalog, Ranking, Benchmarks
 
-## Catalogo su disco
+## Catalog on disk
 
-Modelli presenti in `~/.lmstudio/models/`. Divisi per **tier**, lo stesso concetto usato in dashboard (sezione "Altri") e in `llm-serve list`. Per allineare automaticamente disco e config vedi [MODEL_SYNC.md](MODEL_SYNC.md).
+Models present in `~/.lmstudio/models/`, split by **tier**, the same concept used in the dashboard ("Other" section) and in `llm-serve list`. To keep disk and config aligned automatically, see [MODEL_SYNC.md](MODEL_SYNC.md).
 
-### Profili default (daily driver agentici)
+### Default profiles (agentic daily drivers)
 
-MoE in formato MLX, >=16 GB, con tool calling parsato nativamente da `mlx_lm.server`.
+MoE models in MLX format, >=16 GB, with tool calling parsed natively by `mlx_lm.server`.
 
-| Profilo | Modello | Size | Ruolo |
+| Profile | Model | Size | Role |
 |---|---|---|---|
-| `coder` | `unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit` | 20 GB | **Profilo di default** (`server.default_profile`) - coding agentico, SWE-bench 73.4%, thinking attivo |
+| `coder` | `unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit` | 20 GB | **Default profile** (`server.default_profile`): agentic coding, SWE-bench 73.4%, reasoning on |
 
-### Altri (su disco, non daily driver)
+### Other (on disk, not daily drivers)
 
-Avviabili dove ha senso, ma fuori dai default per i motivi sotto. I primi 2 sono profili (tier "other"); gemma non è un profilo.
+Startable where it makes sense, but kept out of the defaults for the reasons below. The first 2 are profiles (tier "other"); gemma is not a profile.
 
-| Profilo | Modello | Size | Perché non è default |
+| Profile | Model | Size | Why it is not a default |
 |---|---|---|---|
-| `qwen35-9b` | `mlx-community/Qwen3.5-9B-MLX-4bit` | 6 GB | Sotto i 16 GB = floor agentic affidabile su questo setup |
-| `qwen38` | `lmstudio-community/Qwen3.8-27B-MLX-4bit` | 15 GB | Dense 27B: tool calling ok, ma 7,1 t/s misurati (vedi sotto) |
-| - | `unsloth/gemma-4-E4B-it-GGUF` | 6.3 GB | GGUF: `mlx_lm.server` carica solo MLX, qui non è servibile (inline via LM Studio) |
+| `qwen35-9b` | `mlx-community/Qwen3.5-9B-MLX-4bit` | 6 GB | Under 16 GB = the reliable agentic floor on this setup |
+| `qwen38` | `lmstudio-community/Qwen3.8-27B-MLX-4bit` | 15 GB | Dense 27B: tool calling works, but 7.1 t/s measured (see below) |
+| - | `unsloth/gemma-4-E4B-it-GGUF` | 6.3 GB | GGUF: `mlx_lm.server` only loads MLX, so it cannot be served here (inline via LM Studio) |
 
-## Modelli rimossi nel cleanup
+## Models removed in the cleanup
 
-Cancellati per liberare ~50 GB e ridurre confusione:
+Deleted to free ~50 GB and cut confusion:
 
-| Modello | Motivo |
+| Model | Reason |
 |---|---|
-| `Qwen2.5-Coder-7B-Instruct-GGUF` | Superato da Qwen3-Coder-30B-A3B (stessi 4-bit footprint, qualità lontane) |
-| `DeepSeek-R1-Distill-Qwen-14B-GGUF` | Distill obsoleto, reasoning ora coperto da Qwen3-Instruct |
-| `gemma-3-27b-it-qat-4bit` | Gemma 3 superato da Gemma 4 famiglia, e ridondante con i Qwen3 |
-| `gemma-4-26B-A4B-it-GGUF` | Ridondante con Qwen3-30B-Instruct (stesso ruolo planner, Qwen vince benchmark) |
+| `Qwen2.5-Coder-7B-Instruct-GGUF` | Superseded by Qwen3-Coder-30B-A3B (same 4-bit footprint, far better quality) |
+| `DeepSeek-R1-Distill-Qwen-14B-GGUF` | Obsolete distill, reasoning is now covered by Qwen3-Instruct |
+| `gemma-3-27b-it-qat-4bit` | Gemma 3 superseded by the Gemma 4 family, and redundant with the Qwen3 models |
+| `gemma-4-26B-A4B-it-GGUF` | Redundant with Qwen3-30B-Instruct (same planner role, Qwen wins the benchmarks) |
 
-Non più su disco a novembre 2026, profili tolti dalla config: GLM-4.7-Flash (`build`), Qwen3-30B-Instruct-2507 (`plan`), Qwen3-Coder-30B (`coder-old`), Qwen2.5-Coder-14B (`coder-14b`), Qwen3-14B (`qwen3-14b`), Qwen3-VL-30B, embedding nomic. Classifiche e benchmark qui sotto restano come misure storiche.
+No longer on disk as of November 2026, profiles removed from the config: GLM-4.7-Flash (`build`), Qwen3-30B-Instruct-2507 (`plan`), Qwen3-Coder-30B (`coder-old`), Qwen2.5-Coder-14B (`coder-14b`), Qwen3-14B (`qwen3-14b`), Qwen3-VL-30B, nomic embedding. The rankings and benchmarks below stay as historical measurements.
 
-## Classifica per ruolo
+## Ranking by role
 
-### Coding agentic (default opencode build)
+### Agentic coding (default opencode build)
 
-| # | Modello | Coding | Agentic | Speed t/s | Verdetto |
+| # | Model | Coding | Agentic | Speed t/s | Verdict |
 |---|---|---|---|---|---|
 | 1 | **GLM-4.7-Flash** | 7/10 | **9/10** | 32 | Top tool calling, terminal-bench tool-use 40.7% |
-| 2 | Qwen3.6-35B-UD | **9/10** | 8/10 | 27 (warm) | Vince su task lunghi multi-file, SWE-bench 73.4% |
-| 3 | Qwen3-Coder-30B (2025) | 7/10 | 7/10 | 37 | Più veloce, qualità inferiore |
+| 2 | Qwen3.6-35B-UD | **9/10** | 8/10 | 27 (warm) | Wins on long multi-file tasks, SWE-bench 73.4% |
+| 3 | Qwen3-Coder-30B (2025) | 7/10 | 7/10 | 37 | Fastest, lower quality |
 
-GLM e Qwen3.6 differiscono ~5-10% in qualità a seconda del task. Differenza pratica:
+GLM and Qwen3.6 differ by ~5-10% in quality depending on the task. The practical difference:
 
-- **GLM**: vince su task brevi multi-step (loops di tool call, debug interattivo)
-- **Qwen3.6**: vince su refactor lunghi (>30k token), long-context reasoning (29% vs 15%)
+- **GLM**: wins on short multi-step tasks (tool call loops, interactive debugging)
+- **Qwen3.6**: wins on long refactors (>30k tokens) and long-context reasoning (29% vs 15%)
 
-### Planning / reasoning puro
+### Pure planning / reasoning
 
-| # | Modello | Reasoning | Verdetto |
+| # | Model | Reasoning | Verdict |
 |---|---|---|---|
-| 1 | **Qwen3-30B-Instruct-2507** | 9/10 | Specializzato instruction-following, output diretto, no spreco token |
-| 2 | Qwen3.6-35B-UD (thinking on) | 8/10 | Più verbose, ~50% più lento con reasoning |
-| 3 | GLM-4.7-Flash | 7/10 | Decente ma non specializzato |
+| 1 | **Qwen3-30B-Instruct-2507** | 9/10 | Specialized in instruction following, direct output, no wasted tokens |
+| 2 | Qwen3.6-35B-UD (reasoning on) | 8/10 | More verbose, ~50% slower with reasoning |
+| 3 | GLM-4.7-Flash | 7/10 | Decent but not specialized |
 
-### Vision / screenshot
+### Vision / screenshots
 
-| # | Modello | Verdetto |
+| # | Model | Verdict |
 |---|---|---|
-| 1 | **Qwen3-VL-30B-A3B** | Unica opzione decente per 32 GB. Family Qwen3-VL, supporta UI grounding |
+| 1 | **Qwen3-VL-30B-A3B** | The only decent option for 32 GB. Qwen3-VL family, supports UI grounding |
 
-GLM-4.6V esiste ma poco testato; Pixtral 12B è più leggero ma meno capable.
+GLM-4.6V exists but is little tested; Pixtral 12B is lighter but less capable.
 
-### Inline / autocomplete fulminei
+### Instant inline / autocomplete
 
-| # | Modello | Speed | Verdetto |
+| # | Model | Speed | Verdict |
 |---|---|---|---|
-| 1 | **Gemma-4-E4B** | 100+ t/s | Per snippet brevi, completion in editor |
+| 1 | **Gemma-4-E4B** | 100+ t/s | For short snippets, in-editor completion |
 
-## Benchmark dettagliati (2026)
+## Detailed benchmarks (2026)
 
 ### SWE-bench Verified
-- Qwen3.6-35B-A3B: **73.4%** (top open source per la sua size class)
+- Qwen3.6-35B-A3B: **73.4%** (top open source for its size class)
 - GLM-4.7-Flash: ~70%
 - Qwen3-Coder-30B-A3B (2025): ~50-55%
 
 ### Terminal-Bench 2.0 (agentic)
 - Qwen3.6-35B-A3B: 51.5
-- GLM-4.7-Flash: 40.7 (Coding/Terminal/Tool Use bucket - vince qui)
+- GLM-4.7-Flash: 40.7 (Coding/Terminal/Tool Use bucket, it wins here)
 
 ### MMLU-Pro
 - Qwen3.6-35B-A3B: 85.3
@@ -91,55 +91,55 @@ GLM-4.6V esiste ma poco testato; Pixtral 12B è più leggero ma meno capable.
 ### GPQA Diamond
 - Qwen3.6-35B-A3B: 84.2
 
-## Performance misurata (questo setup)
+## Measured performance (this setup)
 
-Stesso prompt (fibonacci + pytest), max_tokens 500, temp 0, mlx_lm.server porta 1234, M5 32 GB:
+Same prompt (fibonacci + pytest), max_tokens 500, temp 0, mlx_lm.server on port 1234, M5 32 GB:
 
-| Modello | Cold start | Warm decode | Note |
+| Model | Cold start | Warm decode | Notes |
 |---|---|---|---|
-| Qwen3-Coder-30B 2025 | 11.7s | **37.7 t/s** | Cache disco già letta |
-| GLM-4.7-Flash | 17.9s | **32.0 t/s** | Cold da disco |
-| Qwen3.6-35B-UD | 32.9s | 10.5 t/s (memory pressure) → **27.2 t/s** (warm + wired_limit) | Quantization "UD" leggermente più lenta |
-| Qwen3.8-27B (dense) | 68s | **7,1 t/s** | Misura con 6,9 GB liberi; tetto teorico ~9-10 |
+| Qwen3-Coder-30B 2025 | 11.7s | **37.7 t/s** | Disk cache already read |
+| GLM-4.7-Flash | 17.9s | **32.0 t/s** | Cold from disk |
+| Qwen3.6-35B-UD | 32.9s | 10.5 t/s (memory pressure) → **27.2 t/s** (warm + wired_limit) | "UD" quantization slightly slower |
+| Qwen3.8-27B (dense) | 68s | **7.1 t/s** | Measured with 6.9 GB free; theoretical ceiling ~9-10 |
 
-### Perché Qwen3.8-27B non è un profilo default (2026-08-15)
+### Why Qwen3.8-27B is not a default profile (2026-08-15)
 
-È l'unico dense della lista, e su questo hardware la differenza con i MoE non è marginale.
-Un A3B attiva 3B di parametri per token, un dense 27B rilegge tutti i 15 GB di pesi: il
-throughput lo detta la banda di memoria, non la GPU. I 7,1 t/s misurati corrispondono a
-~107 GB/s effettivi, cioè il modello sta già girando vicino al suo tetto fisico: liberare
-RAM non lo porta oltre ~9-10 t/s, e scendere a 3-bit non cambierebbe categoria d'uso.
+It is the only dense model in the list, and on this hardware the gap with the MoE models is not marginal.
+An A3B activates 3B parameters per token, while a dense 27B rereads all 15 GB of weights: throughput
+is set by memory bandwidth, not by the GPU. The 7.1 t/s measured correspond to ~107 GB/s effective,
+so the model is already running close to its physical ceiling: freeing RAM does not take it past
+~9-10 t/s, and dropping to 3-bit would not change its category of use.
 
-Le due incognite sollevate al download sono cadute entrambe:
+Both unknowns raised at download time turned out fine:
 
-- **Carica su `mlx_lm.server`** benché sia un VL nativo (`Qwen3_5ForConditionalGeneration`,
-  convertito con mlx-vlm). `mlx_lm/models/qwen3_5.py` scarta i pesi `vision_tower` e
-  `model.visual` e costruisce solo la torre testuale. Niente mlx-vlm, niente upgrade di mlx-lm.
-- **Tool call parsati nativamente**: `finish_reason: tool_calls` con argomenti JSON validi,
-  su mlx-lm 0.31.3 senza modifiche.
+- **It loads on `mlx_lm.server`** even though it is a native VL model (`Qwen3_5ForConditionalGeneration`,
+  converted with mlx-vlm). `mlx_lm/models/qwen3_5.py` discards the `vision_tower` and
+  `model.visual` weights and builds only the text tower. No mlx-vlm, no mlx-lm upgrade.
+- **Tool calls are parsed natively**: `finish_reason: tool_calls` with valid JSON arguments,
+  on mlx-lm 0.31.3 with no changes.
 
-Uso pratico: domande singole dove la qualità per token ripaga l'attesa (review, refactor
-ragionato), non loop agentici. Su un loop da 30 tool call la differenza con `build` è tra
-5 e 25 minuti. Non esistono conversioni MLX text-only né 3-bit MLX di questo modello: il
-3-bit di Unsloth è solo GGUF, quindi fuori da `mlx_lm.server`.
+Practical use: one-off questions where quality per token repays the wait (review, reasoned
+refactors), not agentic loops. On a loop of 30 tool calls the difference from `build` is between
+5 and 25 minutes. There are no text-only MLX conversions or 3-bit MLX builds of this model: the
+Unsloth 3-bit is GGUF only, so it is outside `mlx_lm.server`.
 
-**Insight chiave**: la quantization "UD" (Unsloth Dynamic) di Qwen3.6 ha un piccolo overhead vs il 4-bit standard di lmstudio-community. Per sostituire con `mlx-community/Qwen3.6-35B-A3B-4bit` (non UD) servirebbero +18 GB di download, da considerare se i 27 t/s non bastano.
+**Key insight**: the "UD" (Unsloth Dynamic) quantization of Qwen3.6 has a small overhead vs the standard lmstudio-community 4-bit. Replacing it with `mlx-community/Qwen3.6-35B-A3B-4bit` (non-UD) would take an extra 18 GB download, worth considering if 27 t/s is not enough.
 
-## Verità onesta sulle differenze
+## The honest truth on the differences
 
-**GLM ≈ Qwen3.6 > Qwen3-Coder-30B (2025)**. Le differenze pratiche tra i top 2 sono del 5-10%, non del 50%. Per la maggior parte dei task agentici daily la scelta è equivalente.
+**GLM ≈ Qwen3.6 > Qwen3-Coder-30B (2025)**. The practical differences between the top 2 are 5-10%, not 50%. For most daily agentic tasks the choice is equivalent.
 
-Se dovessi tenere un solo modello per coding: **Qwen3.6**, perché copre coding + ha thinking mode da attivare per planning quando serve. Costo: qualche t/s in meno sul daily driver.
+If I had to keep a single model for coding: **Qwen3.6**, because it covers coding and has a reasoning mode to turn on for planning when needed. Cost: a few t/s less on the daily driver.
 
-## Workflow consigliato
+## Recommended workflow
 
-1. **Default operativo**: `llm-up build` → GLM-4.7 attivo. Va bene per il 90% dei task.
-2. **Refactor profondo / task lungo**: `llm-switch coder` → Qwen3.6.
-3. **Planning architetturale prima di codice**: `llm-switch plan` → Qwen3-Instruct.
-4. **Inline editor**: Gemma-E4B su processo separato (LM Studio o secondo server).
+1. **Operational default**: `llm-up build` → GLM-4.7 active. Fine for 90% of tasks.
+2. **Deep refactor / long task**: `llm-switch coder` → Qwen3.6.
+3. **Architectural planning before code**: `llm-switch plan` → Qwen3-Instruct.
+4. **Inline editor**: Gemma-E4B on a separate process (LM Studio or a second server).
 
-## Decisioni di drop ripensabili
+## Drop decisions worth revisiting
 
-- **Qwen3-Coder-30B (2025) - 16 GB**: 37 t/s (più veloce di tutti) ma qualità inferiore. Lo tengo come fast fallback se serve velocità grezza. Drop = -16 GB.
-- **Qwen3-VL-30B - 17 GB**: tienilo solo se lavori con screenshot/mockup. Confermato come "lo voglio" durante il setup.
-- **Gemma-4-E4B - 6.3 GB**: leggero, comodo. Tienilo.
+- **Qwen3-Coder-30B (2025) - 16 GB**: 37 t/s (faster than all the others) but lower quality. I keep it as a fast fallback for when raw speed is needed. Dropping it = -16 GB.
+- **Qwen3-VL-30B - 17 GB**: keep it only if you work with screenshots/mockups. Confirmed as "I want it" during setup.
+- **Gemma-4-E4B - 6.3 GB**: light and handy. Keep it.

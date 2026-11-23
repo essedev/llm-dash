@@ -1,33 +1,33 @@
-# Dashboard - Stack & Architettura
+# Dashboard - Stack & Architecture
 
-Mini control plane web per gestire i modelli locali. Disponibile su `http://127.0.0.1:1230`.
+Mini web control plane for managing the local models. Available at `http://127.0.0.1:1230`.
 
 ## Stack
 
 ### Backend Python
 
 ```
-fastapi        ~0.x      framework REST + SSE
+fastapi        ~0.x      REST + SSE framework
 uvicorn        0.46      ASGI server
-httpx          ~0.x      client HTTP async (proxy verso mlx_lm.server)
-psutil         7.x       memory/process snapshot cross-platform
-sse-starlette  3.4       helper EventSourceResponse per streaming chat
-jinja2         ~3.x      template engine per HTML
+httpx          ~0.x      async HTTP client (proxy to mlx_lm.server)
+psutil         7.x       cross-platform memory/process snapshot
+sse-starlette  3.4       EventSourceResponse helper for chat streaming
+jinja2         ~3.x      HTML template engine
 ```
 
-Tutte gestite via `uv`, vedi `pyproject.toml`.
+All managed through `uv`, see `pyproject.toml`.
 
-### Frontend (no build per JS, build per CSS)
+### Frontend (no build for JS, build for CSS)
 
-| | Da | Ruolo |
+| | From | Role |
 |---|---|---|
-| Tailwind v4 buildato | `pnpm run build` (CLI nativa) | utility CSS, output `static/output.css` |
-| Alpine.js 3.14 | asset statico `/static/alpine.min.js` | reattività, state management |
-| marked.js 15 | asset statico | render markdown |
-| highlight.js 11 | asset statico | syntax highlighting, applicato al DOM dopo il parse (marked >= 5 non accetta più l'opzione `highlight` in `setOptions`: passarla lì è codice morto e i blocchi restano senza colore) |
-| Geist + JetBrains Mono | Google Fonts CDN | tipografia |
+| Tailwind v4 built | `pnpm run build` (native CLI) | CSS utilities, output `static/output.css` |
+| Alpine.js 3.14 | static asset `/static/alpine.min.js` | reactivity, state management |
+| marked.js 15 | static asset | markdown rendering |
+| highlight.js 11 | static asset | syntax highlighting, applied to the DOM after parsing (marked >= 5 no longer accepts the `highlight` option in `setOptions`: passing it there is dead code and the blocks stay uncolored) |
+| Geist + JetBrains Mono | Google Fonts CDN | typography |
 
-Niente React, niente Vite, niente bundler JS. Si edita `index.html` o `app.js` e si refresha il browser.
+No React, no Vite, no JS bundler. Edit `index.html` or `app.js` and reload the browser.
 
 ## File structure
 
@@ -37,12 +37,12 @@ llm-dash/
 ├── pyproject.toml            ← uv project
 ├── package.json              ← pnpm + tailwindcss CLI
 ├── src/
-│   └── input.css             ← Tailwind v4 source con @theme + @layer components
+│   └── input.css             ← Tailwind v4 source with @theme + @layer components
 ├── templates/
-│   └── index.html            ← markup principale (Jinja2 template)
+│   └── index.html            ← main markup (Jinja2 template)
 └── static/
-    ├── output.css            ← CSS buildato (~18 KB minified)
-    ├── app.js                ← logica Alpine: dash(), chat(), conversations(), logsView()
+    ├── output.css            ← built CSS (~18 KB minified)
+    ├── app.js                ← Alpine logic: dash(), chat(), conversations(), logsView()
     ├── alpine.min.js         ← Alpine 3.14
     ├── marked.min.js         ← markdown
     ├── highlight.min.js      ← highlight
@@ -51,21 +51,21 @@ llm-dash/
 
 ## API endpoints
 
-| Endpoint | Method | Cosa fa |
+| Endpoint | Method | What it does |
 |---|---|---|
 | `/` | GET | HTML page (Jinja2 template) |
 | `/static/*` | GET | static files (CSS, JS) |
 | `/api/status` | GET | `{running, pid, uptime, model, profile, port, switching}` |
 | `/api/memory` | GET | `{total_gb, available_gb, used_gb, wired_gb, active_gb, inactive_gb, compressed_gb, swap_used_gb, swap_total_gb, percent, pressure}` |
-| `/api/profiles` | GET | catalogo dei 4 profili statici (include `ctx` = context window in token) |
-| `/api/switch/{profile}` | POST | invoca `llm-up <profile>` come subprocess, async |
-| `/api/stop` | POST | invoca `llm-down` |
-| `/api/logs` | GET | ultimi 50 eventi switch/stop |
-| `/api/chat` | POST | SSE stream, body `{message, history}`, proxy verso mlx_lm.server. Eventi: `reasoning` (delta del ragionamento: `delta.reasoning` di mlx_lm.server, o `reasoning_content`), `token` (delta content), `done` (`{tps, tokens, elapsed, prompt_tokens, completion_tokens}`), `error`. |
+| `/api/profiles` | GET | catalog of the 4 static profiles (includes `ctx` = context window in tokens) |
+| `/api/switch/{profile}` | POST | runs `llm-up <profile>` as a subprocess, async |
+| `/api/stop` | POST | runs `llm-down` |
+| `/api/logs` | GET | last 50 switch/stop events |
+| `/api/chat` | POST | SSE stream, body `{message, history}`, proxy to mlx_lm.server. Events: `reasoning` (reasoning delta: `delta.reasoning` from mlx_lm.server, or `reasoning_content`), `token` (content delta), `done` (`{tps, tokens, elapsed, prompt_tokens, completion_tokens}`), `error`. |
 
-## Comunicazione client ↔ server
+## Client ↔ server communication
 
-### Polling per dati ciclici (ogni 2s)
+### Polling for cyclic data (every 2s)
 
 ```js
 // app.js
@@ -80,9 +80,9 @@ const fetchAll = async () => {
 setInterval(fetchAll, 2000);
 ```
 
-3 GET in parallelo, ~600 byte totali, latenza locale <5ms. Trascurabile.
+3 GETs in parallel, ~600 bytes total, local latency <5ms. Negligible.
 
-### SSE per chat streaming
+### SSE for chat streaming
 
 Server (Python):
 
@@ -96,7 +96,7 @@ async def api_chat(req: Request) -> EventSourceResponse:
                 async for line in r.aiter_lines():
                     if line.startswith("data: "):
                         chunk = json.loads(line[6:])
-                        # usage chunk arriva DOPO i delta (choices: []), include_usage abilitato
+                        # the usage chunk arrives AFTER the deltas (choices: []), include_usage enabled
                         if (u := chunk.get("usage")):
                             prompt_tokens = u["prompt_tokens"]
                             completion_tokens = u["completion_tokens"]
@@ -110,7 +110,7 @@ async def api_chat(req: Request) -> EventSourceResponse:
     return EventSourceResponse(stream())
 ```
 
-`stream_options: {include_usage: true}` è la chiave OpenAI-compatible: l'ultimo chunk prima di `[DONE]` riporta `usage` con `prompt_tokens` e `completion_tokens` reali (non stima). Funziona su `mlx_lm.server` 0.31+.
+`stream_options: {include_usage: true}` is the OpenAI-compatible key: the last chunk before `[DONE]` carries `usage` with the real `prompt_tokens` and `completion_tokens` (not an estimate). It works on `mlx_lm.server` 0.31+.
 
 Client (JS):
 
@@ -121,49 +121,49 @@ let buf = '';
 while (true) {
   const {done, value} = await reader.read();
   if (done) break;
-  // sse_starlette emette CRLF, il parser cerca \n\n: normalizzare prima
+  // sse_starlette emits CRLF, the parser looks for \n\n: normalize first
   buf += dec.decode(value, {stream:true}).replace(/\r\n/g, '\n');
-  // poi split su \n\n e parse `event: <e>\ndata: <d>` per chunk
+  // then split on \n\n and parse `event: <e>\ndata: <d>` per chunk
 }
 ```
 
-Ogni token arriva immediatamente e il render è limitato a uno per frame (`_scheduleRender`): i token che arrivano in raffica collassano in un render solo. DOM, evidenziazione e scroll si aggiornano nello stesso `requestAnimationFrame`. Non si passa da `$nextTick`, che in Alpine è un `setTimeout` e spezzerebbe l'aggiornamento su paint diversi.
+Each token arrives immediately and rendering is limited to one per frame (`_scheduleRender`): tokens arriving in a burst collapse into a single render. DOM, highlighting and scroll update in the same `requestAnimationFrame`. `$nextTick` is not used: in Alpine it is a `setTimeout` and would split the update across different paints.
 
-**Render markdown durante lo streaming** (`StreamRenderer`): il testo è markdown a metà, e l'obiettivo è che il box cresca senza mai accorciarsi.
+**Markdown rendering while streaming** (`StreamRenderer`): the text is half-written markdown, and the goal is for the box to grow without ever shrinking.
 
-- **Incrementale**: `marked.lexer` divide il testo in blocchi di primo livello. I blocchi già chiusi entrano nel DOM una volta sola, già evidenziati e col bottone copia; a ogni frame si riscrive solo l'ultimo. Un blocco chiuso resta valido finché il suo `raw` è prefisso dei token nuovi (una riga indentata può riaprire la lista di prima) e finché non cambiano le definizioni `[ref]: url`; altrimenti si rifà da lì. Sostituire tutto l'HTML a ogni frame ricreava anche i blocchi chiusi, rievidenziati dopo il paint, con costo quadratico sulla lunghezza.
-- `closeOpenFences()` chiude virtualmente il recinto aperto, con le regole di CommonMark (dentro un blocco solo una riga di soli backtick o tilde, lunga almeno quanto l'apertura, lo chiude). Senza, un blocco di codice ancora aperto inghiotte il resto della risposta.
-- `dropPartialLine()` nasconde l'ultima riga finché non arriva il suo a capo, se è sintassi che cambia la struttura del blocco sopra: uno o due backtick, una sottolineatura `===`/`---`, il separatore di una tabella. Mostrata così com'è comparirebbe come testo e sparirebbe al token dopo.
-- L'ultimo blocco non viene evidenziato finché è in scrittura: lo fa il bubble definitivo alla chiusura del messaggio, via `x-init` con `queueMicrotask` (prima del paint).
-- Il cursore è uno `<span class="stream-cursor">` messo in coda all'ultima riga di testo; non entra in codice, tabelle e `<hr>`.
+- **Incremental**: `marked.lexer` splits the text into top-level blocks. Blocks that are already closed enter the DOM only once, already highlighted and with the copy button; only the last one is rewritten on each frame. A closed block stays valid as long as its `raw` is a prefix of the new tokens (an indented line can reopen the previous list) and as long as the `[ref]: url` definitions do not change; otherwise rendering restarts from there. Replacing all the HTML on every frame also recreated the closed blocks, re-highlighted after the paint, with quadratic cost in length.
+- `closeOpenFences()` virtually closes the open code fence, following the CommonMark rules (inside a block, only a line of just backticks or tildes, at least as long as the opening, closes it). Without it, a code block that is still open swallows the rest of the answer.
+- `dropPartialLine()` hides the last line until its newline arrives, if it is syntax that changes the structure of the block above: one or two backticks, a `===`/`---` underline, a table separator. Shown as is, it would appear as text and vanish at the next token.
+- The last block is not highlighted while it is being written: the final bubble does it when the message closes, via `x-init` with `queueMicrotask` (before the paint).
+- The cursor is a `<span class="stream-cursor">` appended to the last line of text; it does not go into code, tables or `<hr>`.
 
-**Ragionamento** (modelli con `enable_thinking = true`): arriva come evento `reasoning`, separato dalla risposta, e si mostra in un `<details class="think">` sopra di essa. Il riquadro ha un'altezza massima con scroll interno che segue il fondo, e resta aperto fino a fine messaggio: chiuderlo quando parte la risposta farebbe saltare il box. Nel messaggio salvato (`reasoning`, `thinkSecs`) è chiuso di default; resta aperto solo quello appena finito (`openThinkIdx`, non persistito). Il ragionamento non torna nella history mandata al modello: il backend tiene solo `role` e `content`. I suoi token contano per tok/s.
+**Reasoning** (models with `enable_thinking = true`): it arrives as a `reasoning` event, separate from the answer, and is shown in a `<details class="think">` above it. The box has a maximum height with internal scroll that sticks to the bottom, and stays open until the message ends: closing it when the answer starts would make the box jump. In the saved message (`reasoning`, `thinkSecs`) it is closed by default; only the one that just finished stays open (`openThinkIdx`, not persisted). Reasoning does not go back into the history sent to the model: the backend keeps only `role` and `content`. Its tokens count toward tok/s.
 
-**Aggancio al fondo**: la chat segue la generazione solo finché l'utente resta entro
-`STICK_THRESHOLD_PX` (120px) dal fondo. Sopra quella distanza l'aggancio si stacca e lo
-streaming non trascina più la vista; rientrando nella soglia si riaggancia da solo, e
-compare il pulsante `.jump-bottom` per tornare giù subito. Lo scroll programmatico è
-istantaneo di proposito: `smooth` genererebbe eventi di scroll intermedi che sganciano
-l'aggancio da soli.
+**Stick to bottom**: the chat follows the generation only while the user stays within
+`STICK_THRESHOLD_PX` (120px) of the bottom. Beyond that distance it detaches and
+streaming no longer drags the view; coming back within the threshold it reattaches by itself, and
+the `.jump-bottom` button appears to go back down right away. Programmatic scroll is
+instant on purpose: `smooth` would generate intermediate scroll events that detach
+the stick on their own.
 
-**Gotcha 1 - separator CRLF**: `sse_starlette` separa gli eventi con `\r\n\r\n`. Senza la `replace(/\r\n/g, '\n')` il parser non trova mai il delimitatore e gli eventi vengono scartati silenziosamente.
+**Gotcha 1 - CRLF separator**: `sse_starlette` separates events with `\r\n\r\n`. Without the `replace(/\r\n/g, '\n')` the parser never finds the delimiter and events are silently discarded.
 
-**Gotcha 2 - data multi-line**: quando il content del modello contiene `\n` (code block, paragrafi), `sse_starlette` splitta il dato in più righe `data:`. Per spec SSE le righe `data:` consecutive vanno concatenate con `\n` separator. Senza questo fix le newline spariscono ("def foo():" e "    return x" si fondono in "def foo():    return x"):
+**Gotcha 2 - multi-line data**: when the model's content contains `\n` (code blocks, paragraphs), `sse_starlette` splits the data into several `data:` lines. Per the SSE spec, consecutive `data:` lines must be joined with a `\n` separator. Without this fix the newlines disappear ("def foo():" and "    return x" merge into "def foo():    return x"):
 
 ```js
 let dataSeen = false;
 for (const l of lines) {
   if (l.startsWith('data:')) {
-    if (dataSeen) data += '\n';   // <- separator obbligatorio
+    if (dataSeen) data += '\n';   // <- separator is mandatory
     data += l.startsWith('data: ') ? l.slice(6) : l.slice(5);
     dataSeen = true;
   }
 }
 ```
 
-**Stop / abort streaming**: il client tiene un `AbortController` per ogni `send()`. Cliccare il bottone Stop chiama `abort()` → la connection si chiude → Starlette cancella il generator → httpx termina lo stream verso mlx_lm.server. Lato client, il `catch` distingue `AbortError` (mostra `[interrotto]`) da errori reali. Pattern aggiuntivo `_abortAndDiscard` (con flag `_discardStream`) usato quando l'utente cambia conversazione mid-stream: aborta E scarta il buffer per evitare che la risposta parziale venga attribuita alla conversazione sbagliata.
+**Stop / abort streaming**: the client keeps an `AbortController` for each `send()`. Clicking the Stop button calls `abort()` → the connection closes → Starlette cancels the generator → httpx ends the stream to mlx_lm.server. On the client side, the `catch` tells `AbortError` (shows `[interrupted]`) apart from real errors. An additional `_abortAndDiscard` pattern (with a `_discardStream` flag) is used when the user switches conversation mid-stream: it aborts AND discards the buffer so the partial answer is not attributed to the wrong conversation.
 
-## Persistenza chat (localStorage)
+## Chat persistence (localStorage)
 
 ```js
 // app.js
@@ -182,32 +182,32 @@ const CURRENT_KEY = 'llmdash:current:v1';
 }
 ```
 
-5 MB di quota localStorage = ~5000 conversazioni medie. Mai limitato in pratica.
+5 MB of localStorage quota = ~5000 average conversations. Never a limit in practice.
 
-Eventi DOM custom per coordinare i 3 component Alpine:
+Custom DOM events to coordinate the 3 Alpine components:
 
-- `conv:select` (switch chat) - se streaming, aborta e scarta prima di caricare la nuova
-- `conv:new` (nuova chat) - stesso pattern abort-and-discard
-- `conv:list` (refresh sidebar)
+- `conv:select` (switch chat) - if streaming, abort and discard before loading the new one
+- `conv:new` (new chat) - same abort-and-discard pattern
+- `conv:list` (sidebar refresh)
 
-Store globale Alpine per dialog modal: `Alpine.store('dialog')` con metodi promise-based `confirm({title, message, variant, confirmLabel})` e `alert({title, message})`. Sostituisce `alert()`/`confirm()` nativi del browser. Gestisce ESC/Enter, focus iniziale sul confirm button, tre varianti (`info` / `warn` / `danger`) con bordo e tag colorati.
+Global Alpine store for modal dialogs: `Alpine.store('dialog')` with promise-based methods `confirm({title, message, variant, confirmLabel})` and `alert({title, message})`. It replaces the browser's native `alert()`/`confirm()`. It handles ESC/Enter, initial focus on the confirm button, and three variants (`info` / `warn` / `danger`) with colored border and tag.
 
 ## Design system - "Quiet Instrument"
 
-Vedi `src/input.css` per i token CSS completi.
+See `src/input.css` for the full CSS tokens.
 
 ### Colori
 
 ```css
---color-bg: #08080a;          /* background quasi-nero, slight cool */
+--color-bg: #08080a;          /* near-black background, slightly cool */
 --color-surface: #14141a;     /* frame */
 --color-surface-2: #1c1c24;   /* nested elements */
 --color-surface-3: #25252e;   /* deepest hover */
---color-line: #34343f;        /* borders visibili */
+--color-line: #34343f;        /* visible borders */
 --color-line-soft: #25252e;   /* divider */
 
 --color-fg: #fafafa;          /* text primary */
---color-fg-strong: #ffffff;   /* labels importanti */
+--color-fg-strong: #ffffff;   /* important labels */
 --color-fg-dim: #c4c4cc;      /* secondary */
 --color-fg-mute: #8e8e96;     /* tertiary */
 --color-fg-faint: #5e5e66;    /* hint */
@@ -220,87 +220,87 @@ Vedi `src/input.css` per i token CSS completi.
 
 ### Tipografia
 
-- **Geist** (300-700) per UI
-- **JetBrains Mono** (400-700) per dati numerici, label small-caps, code
+- **Geist** (300-700) for UI
+- **JetBrains Mono** (400-700) for numeric data, small-caps labels, code
 
 ### Component classes notevoli
 
-| Class | Cosa è |
+| Class | What it is |
 |---|---|
-| `.frame` | pannello con bordo hairline, niente shadow |
-| `.caption` | small-caps mono uppercase per label sezione |
-| `.mono-num` | numeri tabular-nums |
-| `.kpi-num` | numero grande LCD-style (% used memoria) |
-| `.profile-btn` | bottone profilo con bar laterale 2px (lime su attivo) |
-| `.meter` + `.meter-fill` | barra LCD-style con texture verticale |
-| `.stack-meter` + `.stack-seg` | barra segmentata 5-band per breakdown RAM (wired/active/compressed/inactive/free) |
-| `.pressure-badge` | pill low/medium/high per la pressione memoria |
-| `.dot-legend` | quadratino legenda per la stack-meter |
-| `.bubble-user` / `.bubble-asst` | bubble chat |
-| `.markdown-body.streaming` | risposta in corso, renderizzata come markdown da `StreamRenderer` |
-| `.think` / `.think-head` / `.think-body` | riquadro del ragionamento; `.live` mentre il modello sta ancora pensando |
-| `.stream-cursor` | cursore dello streaming, inserito in coda all'ultima riga di testo così non occupa mai una riga sua |
-| `.code-copy` | bottone copia sul blocco di codice (opacity 0.35 → 1 in hover, stati `.ok` / `.err` per 1,5s) |
-| `.jump-bottom` | pill flottante "torna in fondo", visibile solo quando l'aggancio si è staccato |
-| `.btn-accent` | call-to-action lime (Transmit) - flex-center, min-width per evitare jump fra label diverse |
-| `.btn-stop` | bottone Stop streaming - outline crit con `.stop-square` glyph + glow rossa |
-| `.btn-crit` | filled critical (CTA distruttiva nei dialog confirm) |
-| `.spinner-dot` | mini ring rotante (loading inline) |
-| `.load-banner` | banner ambra "Loading model" sopra la chat durante switch |
-| `.typing-dots` | tre puntini pulsanti prima del primo token |
-| `.dialog-backdrop` + `.dialog-frame` | modal custom (varianti `.variant-{info,warn,danger}` con bordo+glow colorato), header `.dialog-glyph` + `.dialog-tag` + `.dialog-rule` |
-| `.ctx-meter` + `.ctx-meter-fill` | barra context usage in header chat (verde/warm/crit a 65%/85%) |
-| `.conv-item-del` | icona cestino on-hover sull'item conversazione (absolute right, opacity 0 → 1, hover crit) |
+| `.frame` | panel with a hairline border, no shadow |
+| `.caption` | mono uppercase small-caps for section labels |
+| `.mono-num` | tabular-nums numbers |
+| `.kpi-num` | large LCD-style number (memory % used) |
+| `.profile-btn` | profile button with a 2px side bar (lime when active) |
+| `.meter` + `.meter-fill` | LCD-style bar with vertical texture |
+| `.stack-meter` + `.stack-seg` | 5-band segmented bar for the RAM breakdown (wired/active/compressed/inactive/free) |
+| `.pressure-badge` | low/medium/high pill for memory pressure |
+| `.dot-legend` | small legend square for the stack-meter |
+| `.bubble-user` / `.bubble-asst` | chat bubbles |
+| `.markdown-body.streaming` | answer in progress, rendered as markdown by `StreamRenderer` |
+| `.think` / `.think-head` / `.think-body` | reasoning box; `.live` while the model is still thinking |
+| `.stream-cursor` | streaming cursor, appended to the last line of text so it never takes a line of its own |
+| `.code-copy` | copy button on the code block (opacity 0.35 → 1 on hover, `.ok` / `.err` states for 1.5s) |
+| `.jump-bottom` | floating "back to bottom" pill, visible only when the stick has detached |
+| `.btn-accent` | lime call-to-action (Transmit) - flex-center, min-width to avoid jumps between different labels |
+| `.btn-stop` | Stop streaming button - crit outline with `.stop-square` glyph + red glow |
+| `.btn-crit` | filled critical (destructive CTA in confirm dialogs) |
+| `.spinner-dot` | small spinning ring (inline loading) |
+| `.load-banner` | amber "Loading model" banner above the chat during a switch |
+| `.typing-dots` | three pulsing dots before the first token |
+| `.dialog-backdrop` + `.dialog-frame` | custom modal (`.variant-{info,warn,danger}` variants with colored border+glow), header `.dialog-glyph` + `.dialog-tag` + `.dialog-rule` |
+| `.ctx-meter` + `.ctx-meter-fill` | context usage bar in the chat header (green/warm/crit at 65%/85%) |
+| `.conv-item-del` | trash icon on hover on the conversation item (absolute right, opacity 0 → 1, hover crit) |
 
 ### Animazioni
 
-- `.rise` + `.rise-1..4`: stagger entrance al page load (6px translateY + opacity)
-- `.status-dot.live` / `.warn` / `.crit`: breath animation con glow del colore corrispondente
-- `.cursor-blink`: blink mono inline nel testo durante streaming
-- `.spinner-dot`: rotazione 0.7s linear (loading)
-- `.typing-dots`: 3 puntini con dot-pulse staggered 0.15s
+- `.rise` + `.rise-1..4`: staggered entrance on page load (6px translateY + opacity)
+- `.status-dot.live` / `.warn` / `.crit`: breathing animation with a glow in the matching color
+- `.cursor-blink`: inline mono blink in the text during streaming
+- `.spinner-dot`: 0.7s linear rotation (loading)
+- `.typing-dots`: 3 dots with dot-pulse staggered 0.15s
 
-## Avvio / arresto / dev
+## Start / stop / dev
 
 ```bash
-# Comandi via Makefile
+# Via Makefile
 make dev               # foreground
 make dash              # background
 make dash-stop         # stop
 
-# Manuali
+# Manual
 llm-dash               # foreground
 llm-dash --bg          # background, log in /tmp/llm-dash.log
-llm-dash stop          # stop background
+llm-dash stop          # stop the background instance
 
 # Build CSS
 pnpm run build         # one-shot
-pnpm run watch         # watch mode (ribuilda su edit src/input.css o templates/)
+pnpm run watch         # watch mode (rebuilds on edits to src/input.css or templates/)
 ```
 
-## Estensioni possibili (non implementate)
+## Possible extensions (not implemented)
 
-- **Chart.js** via CDN per grafico timeline RAM/swap (non serve davvero, polling 2s rende abbastanza)
-- **WebSocket** per push status invece di polling (overkill per dati che cambiano ogni 2s)
-- **Auth** se mai dovessi esporre la dashboard fuori da localhost (per ora bind 127.0.0.1)
-- **Markdown rendering KaTeX** per formule matematiche nei messaggi assistant
-- **Export conversazione** in `.md` (banale aggiunta via JS blob download)
+- **Chart.js** via CDN for a RAM/swap timeline chart (not really needed, 2s polling is enough)
+- **WebSocket** to push status instead of polling (overkill for data that changes every 2s)
+- **Auth** if the dashboard ever has to be exposed beyond localhost (for now it binds to 127.0.0.1)
+- **KaTeX markdown rendering** for math formulas in assistant messages
+- **Conversation export** to `.md` (trivial addition via a JS blob download)
 
 ## Debug
 
 ```bash
-# Dashboard non risponde
-curl http://127.0.0.1:1230/api/status        # se 200 ok, è la UI
-tail -f /tmp/llm-dash.log                    # log uvicorn
+# Dashboard not responding
+curl http://127.0.0.1:1230/api/status        # if 200 ok, it's the UI
+tail -f /tmp/llm-dash.log                    # uvicorn log
 
 # Asset 404
-ls static/                                   # output.css esiste?
+ls static/                                   # does output.css exist?
 pnpm run build                               # rebuild
 
-# Server LLM non viene rilevato
-curl http://127.0.0.1:1234/v1/models         # è up?
-ps -axo pid,comm | grep mlx_lm               # processo vivo?
+# LLM server not detected
+curl http://127.0.0.1:1234/v1/models         # is it up?
+ps -axo pid,comm | grep mlx_lm               # process alive?
 
-# Memoria sballata
+# Wrong memory numbers
 curl http://127.0.0.1:1230/api/memory | python3 -m json.tool
 ```

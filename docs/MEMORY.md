@@ -1,131 +1,131 @@
-# Gestione Memoria
+# Memory Management
 
-## available vs used - la differenza che conta
+## available vs used - the difference that matters
 
-Su macOS la metrica `used` è fuorviante perché include cache filesystem **recuperabile al volo**. Il numero che decide se il modello sta in RAM è `available_gb`.
+On macOS the `used` metric is misleading because it includes filesystem cache that is **reclaimable on the fly**. The number that decides whether the model fits in RAM is `available_gb`.
 
-### Decomposizione tipica
+### Typical breakdown
 
 ```
-Free:        1-3 GB     ← libera "vera"
-Active:      6-15 GB    ← app foreground (Brave, VS Code, Claude)
-Inactive:    5-13 GB    ← cache app recenti, recuperabile
-Wired:       3-5 GB     ← kernel + sistema (non ricuperabile)
-Compressed:  0.1-3 GB   ← compressor pages (basso = sano)
-Cached:      5-10 GB    ← filesystem cache (altamente recuperabile)
+Free:        1-3 GB     ← truly free
+Active:      6-15 GB    ← foreground apps (Brave, VS Code, Claude)
+Inactive:    5-13 GB    ← recent app cache, reclaimable
+Wired:       3-5 GB     ← kernel + system (not reclaimable)
+Compressed:  0.1-3 GB   ← compressor pages (low = healthy)
+Cached:      5-10 GB    ← filesystem cache (highly reclaimable)
 ```
 
-**`available = free + inactive + cached + parte-di-compressed`**
+**`available = free + inactive + cached + part-of-compressed`**
 
-In Python via `psutil.virtual_memory().available` macOS calcola questo automaticamente.
+In Python, `psutil.virtual_memory().available` computes this automatically on macOS.
 
-### Perché la dashboard usa pressure + breakdown
+### Why the dashboard uses pressure + breakdown
 
-La sezione Memory mostra:
+The Memory section shows:
 
-1. **`% used`** primario (`(total - available) / total * 100`): è la metrica psutil standard, fra 0-100 indipendente dalla dimensione totale.
-2. **Pressure badge low/medium/high**: derivata da `vm.percent + compressed_gb + swap_used_gb`. Soglie:
-   - **Low**: percent < 72%, compressed < 8% di total, swap < 2 GB
-   - **Medium**: percent 72-87%, oppure compressed 8-18%, oppure swap 2-8 GB
-   - **High**: percent ≥ 88%, oppure compressed > 18%, oppure swap > 8 GB
-3. **Stack meter**: barra 5-segmenti (wired / active / compressed / inactive / free) per vedere a colpo d'occhio dove va la RAM.
-4. **Reclaimable**: `available_gb` (free + inactive + speculative). Verde se ≥ 8 GB.
+1. **`% used`** as the primary figure (`(total - available) / total * 100`): the standard psutil metric, from 0 to 100 regardless of total size.
+2. **Pressure badge low/medium/high**: derived from `vm.percent + compressed_gb + swap_used_gb`. Thresholds:
+   - **Low**: percent < 72%, compressed < 8% of total, swap < 2 GB
+   - **Medium**: percent 72-87%, or compressed 8-18%, or swap 2-8 GB
+   - **High**: percent ≥ 88%, or compressed > 18%, or swap > 8 GB
+3. **Stack meter**: a 5-segment bar (wired / active / compressed / inactive / free) to see at a glance where the RAM goes.
+4. **Reclaimable**: `available_gb` (free + inactive + speculative). Green if ≥ 8 GB.
 
-Quando carichi un modello, macOS prende prima da Inactive/Cached (riallocazione veloce, niente swap), poi se servisse di più caccia anche app Active in swap (lento). La pressione tiene conto sia di compressor che di swap, non solo del numero "used".
+When you load a model, macOS first takes from Inactive/Cached (fast reallocation, no swap), then if it needs more it also pushes Active apps out to swap (slow). Pressure accounts for both compressor and swap, not just the "used" number.
 
-## KV cache - costi nascosti
+## KV cache - hidden costs
 
-Per ogni token nel context la cache occupa:
+For every token in the context, the cache takes:
 
 ```
 KV_per_token = n_layers × n_kv_heads × head_dim × 2 (K+V) × bytes_per_element
 ```
 
-Per MoE moderni con GQA (Qwen3, GLM, Gemma 4):
+For modern MoE models with GQA (Qwen3, GLM, Gemma 4):
 - ~100 KB / token in FP16
 - ~50 KB / token in INT8
 - ~25 KB / token in INT4
 
-A context 64k:
+At 64k context:
 - FP16 = 6.4 GB
 - INT8 = 3.2 GB
 - INT4 = 1.6 GB
 
-`mlx_lm.server` 0.31 NON espone quantizzazione KV via flag (esiste in `mlx_lm.generate` con `--kv-bits` ma non sul server). Quindi sul server la KV è FP16 nativa.
+`mlx_lm.server` 0.31 does NOT expose KV quantization via a flag (it exists in `mlx_lm.generate` with `--kv-bits` but not on the server). So on the server the KV cache is native FP16.
 
-**Il budget effettivo per il modello** è quindi `available - 6.4 GB`.
+**The effective budget for the model** is therefore `available - 6.4 GB`.
 
-## Scenari concreti
+## Concrete scenarios
 
-### Scenario A: Brave + VS Code + Claude attivi (caso normale)
+### Scenario A: Brave + VS Code + Claude active (normal case)
 
 ```
 Total:           32 GB
-Sistema + app:  -10 GB
+System + apps: -10 GB
 ─────────────────────────
-Disponibile:     22 GB
+Available:       22 GB
 KV @ 64k:       -6.4 GB
 ─────────────────────────
-Budget modello:  15.6 GB → GLM-4.7 (16 GB) borderline
+Model budget:    15.6 GB → GLM-4.7 (16 GB) borderline
 ```
 
-Devi chiudere qualche tab per starci.
+You have to close a few tabs to fit.
 
-### Scenario B: solo cmux + opencode (development focus)
+### Scenario B: only cmux + opencode (development focus)
 
 ```
 Total:           32 GB
-Sistema + app:   -7 GB
+System + apps:  -7 GB
 ─────────────────────────
-Disponibile:     25 GB
+Available:       25 GB
 KV @ 64k:       -6.4 GB
 ─────────────────────────
-Budget modello:  18.6 GB → Qwen3.6 (20 GB) borderline
+Model budget:    18.6 GB → Qwen3.6 (20 GB) borderline
 ```
 
-Stretto ma fattibile con wired_limit a 28 GB.
+Tight but doable with wired_limit at 28 GB.
 
-### Scenario C: Docker Desktop attivo con 3 container
+### Scenario C: Docker Desktop running with 3 containers
 
 ```
 Total:           32 GB
-Sistema + app:  -10 GB
+System + apps: -10 GB
 Docker VM:       -6 GB
 ─────────────────────────
-Disponibile:     16 GB
+Available:       16 GB
 KV @ 64k:       -6.4 GB
 ─────────────────────────
-Budget modello:  9.6 GB → solo Gemma-E4B (6 GB)
+Model budget:    9.6 GB → only Gemma-E4B (6 GB)
 ```
 
-Per LLM agentic serio devi spegnere Docker, o limitare Docker Desktop a 4 GB di RAM (Settings → Resources → Memory).
+For serious agentic LLM work you have to shut Docker down, or limit Docker Desktop to 4 GB of RAM (Settings → Resources → Memory).
 
 ## iogpu.wired_limit_mb
 
-Il sysctl che permette a MLX di "wirare" tutto il modello in RAM senza pageout.
+The sysctl that lets MLX "wire" the whole model in RAM without pageout.
 
 ```bash
 sudo sysctl iogpu.wired_limit_mb=28000   # 28 GB
 ```
 
-Senza questo, anche con RAM sufficiente, durante decode macOS può paginare blocchi del modello → throughput crolla.
+Without it, even with enough RAM, macOS can page out blocks of the model during decode, and throughput collapses.
 
-Per persistenza: `config/com.local.wired-limit.plist` come LaunchDaemon.
+To persist it: `config/com.local.wired-limit.plist` as a LaunchDaemon.
 
-### Verifica
+### Check
 
 ```bash
 sysctl iogpu.wired_limit_mb
 # iogpu.wired_limit_mb: 28000  ← ok
 ```
 
-## Swap - quando è un problema
+## Swap - when it is a problem
 
-Lo swap su macOS è un file in `/private/var/vm/`. macOS ci scrive volentieri pagine inactive.
+Swap on macOS is a file in `/private/var/vm/`. macOS readily writes inactive pages to it.
 
-**Swap usato 0-10 GB**: normale, non impatta.
-**Swap 10-20 GB**: attenzione, sistema sotto pressione.
-**Swap > 20 GB**: thrashing, riavvia o chiudi app pesanti.
+**Swap used 0-10 GB**: normal, no impact.
+**Swap 10-20 GB**: caution, system under pressure.
+**Swap > 20 GB**: thrashing, reboot or close heavy apps.
 
 ```bash
 sysctl vm.swapusage
@@ -134,43 +134,43 @@ sysctl vm.swapusage
 
 ### Recovery
 
-Se lo swap è gonfio dopo una sessione MLX intensa:
+If swap is bloated after an intensive MLX session:
 
-1. `llm-down` (libera il modello)
-2. `sudo purge` (richiede password, libera inactive + compressor)
-3. Chiudi tab Brave non in uso
-4. Se ancora alto: **riavvio** (resetta swap)
+1. `llm-down` (unloads the model)
+2. `sudo purge` (asks for a password, frees inactive + compressor)
+3. Close Brave tabs you are not using
+4. If still high: **reboot** (resets swap)
 
-## Cold start - cache disco filesystem
+## Cold start - filesystem disk cache
 
-I 20 GB di safetensors di Qwen3.6 vengono letti da disco al primo `mlx_lm.server` boot (~30s). macOS li tiene in **filesystem cache** dopo la lettura. Al secondo boot, partono dalla cache RAM (5s).
+The 20 GB of Qwen3.6 safetensors are read from disk on the first `mlx_lm.server` boot (~30s). macOS keeps them in the **filesystem cache** after reading. On the second boot they start from the RAM cache (5s).
 
-Implicazioni:
-- **Primo avvio del giorno**: lento (30-40s).
-- **Switch modello dopo poco**: rapido (<5s) se la cache regge.
-- **Switch modello dopo che hai aperto file pesanti**: lento, perché filesystem cache è stata sgomberata.
+Implications:
+- **First start of the day**: slow (30-40s).
+- **Model switch shortly after**: fast (<5s) if the cache holds.
+- **Model switch after opening heavy files**: slow, because the filesystem cache was evicted.
 
-## Compressor - segnale di stress
+## Compressor - stress signal
 
-Il compressor di macOS comprime pagine inactive per liberare RAM senza scrivere swap. Usa LZ4 super veloce.
+The macOS compressor compresses inactive pages to free RAM without writing to swap. It uses very fast LZ4.
 
-- **Compressor 0-3 GB**: normale.
-- **Compressor 3-10 GB**: sotto stress, prossimo passo è swap.
-- **Compressor > 10 GB**: thrashing imminente o in corso.
+- **Compressor 0-3 GB**: normal.
+- **Compressor 3-10 GB**: under stress, swap is the next step.
+- **Compressor > 10 GB**: thrashing imminent or underway.
 
-In `psutil.virtual_memory()` il compressor è incluso in `used` ma il sistema lo conta come "available" perché può decomprimerlo on-demand (lento però).
+In `psutil.virtual_memory()` the compressor is included in `used`, but the system counts it as "available" because it can decompress it on demand (slowly, though).
 
-## Workflow consigliato
+## Recommended workflow
 
-1. **Sessione di coding seria**: chiudi Brave, lascia solo cmux + un editor + opencode. Carica Qwen3.6 (`coder`). Lavora.
-2. **Day usage normale**: se serve headroom, Qwen3.8-27B (15 GB) o Qwen3.5-9B (6 GB) al posto di Qwen3.6 (20 GB).
-3. **Quando il badge pressure passa a medium/high**: chiudi qualcosa o swap a modello più piccolo. `% used` da solo non basta - guarda anche compressor e swap nella legenda.
-4. **Dopo sessione MLX intensa**: `llm-down` quando finisci, libera 16-20 GB istantanei.
+1. **Serious coding session**: close Brave, leave only cmux + an editor + opencode. Load Qwen3.6 (`coder`). Work.
+2. **Normal day usage**: if you need headroom, Qwen3.8-27B (15 GB) or Qwen3.5-9B (6 GB) instead of Qwen3.6 (20 GB).
+3. **When the pressure badge goes to medium/high**: close something or switch to a smaller model. `% used` alone is not enough: also look at compressor and swap in the legend.
+4. **After an intensive MLX session**: `llm-down` when you finish, it frees 16-20 GB instantly.
 
-## Macros utili
+## Useful macros
 
 ```bash
-# Snapshot rapido
+# Quick snapshot
 function memstat() {
   vm_stat | head -8
   echo

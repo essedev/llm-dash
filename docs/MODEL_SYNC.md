@@ -1,62 +1,62 @@
-# MODEL_SYNC - Prompt di allineamento modelli ↔ config
+# MODEL_SYNC: Model ↔ config alignment prompt
 
-Questo NON è uno script deterministico: è un **prompt operativo** da dare a un agente LLM (opencode, Claude Code, ...) lanciato dalla root del repo `llm-dash`. L'agente confronta i modelli realmente presenti su disco con le config del progetto e le riallinea (aggiunge i mancanti, rimuove gli orfani, classifica per tier).
+This is NOT a deterministic script: it is an **operational prompt** to give to an LLM agent (opencode, Claude Code, ...) launched from the root of the `llm-dash` repo. The agent compares the models actually present on disk with the project configs and realigns them (adds the missing ones, removes the orphans, classifies by tier).
 
-Serve perché la lista modelli è duplicata in più punti e tende a divergere: scarichi/cancelli un modello in `~/.lmstudio/models/` e le config restano indietro.
+It exists because the model list is duplicated in several places and tends to drift: you download or delete a model in `~/.lmstudio/models/` and the configs fall behind.
 
-## Come si usa
+## How to use it
 
-Apri un agente nella root del repo e incolla il blocco "PROMPT" qui sotto. L'agente fa tutto: scansione, diff, edit, validazione, report. Tu rivedi il report finale.
+Open an agent in the repo root and paste the "PROMPT" block below. The agent does everything: scan, diff, edit, validation, report. You review the final report.
 
 ---
 
-## PROMPT (incolla da qui)
+## PROMPT (paste from here)
 
-Sei un agente di manutenzione del repo `llm-dash`. Obiettivo: allineare i modelli LLM locali presenti su disco con tutte le config del progetto. Lavora in modo oggettivo, non inventare modelli, verifica tutto con i comandi.
+You are a maintenance agent for the `llm-dash` repo. Goal: align the local LLM models present on disk with all the project's configs. Work objectively, do not invent models, verify everything with commands.
 
-### 1. Sorgente di verità = il disco
+### 1. Source of truth = the disk
 
-Elenca i modelli presenti:
+List the models present:
 
 ```bash
 find ~/.lmstudio/models -maxdepth 2 -mindepth 2 -type d | sort
 ```
 
-Per ognuno determina: formato (MLX vs GGUF: guarda i file - `*.safetensors` + `config.json` = MLX; `*.gguf` = GGUF), size on-disk (`du -sh`), e famiglia/tipo dal nome (coder, instruct, VL=vision, embedding, MoE vs dense).
+For each one determine: format (MLX vs GGUF: look at the files - `*.safetensors` + `config.json` = MLX; `*.gguf` = GGUF), on-disk size (`du -sh`), and family/type from the name (coder, instruct, VL=vision, embedding, MoE vs dense).
 
-### 2. Punti da tenere in sync (tutti)
+### 2. Places to keep in sync (all of them)
 
-Un modello "wired" deve comparire in modo coerente in:
+A "wired" model must appear consistently in:
 
-1. `config/llm-dash.toml` - sezione `[profiles.<nome>]`: ogni profilo avviabile ha `label`, `tag`, `path` (relativo a `models_dir`), `size_gb`, `ctx`, `tier`, `note`, e opzionalmente `[profiles.<nome>.chat_template_args]`. Questo è il **single source of truth**: `bin/llm-serve` e `main.py` lo leggono a runtime, non vanno editati a mano.
-2. `config/opencode.json.example` - `provider.mlx.models`: chiave = path assoluto del modello, valore = `{ name, limit:{context, output} }`.
-3. `~/.config/opencode/opencode.json` (config LIVE, fuori dal repo) - stesso blocco `provider.mlx.models`. NON toccare `agent`, `mcp`, provider `openrouter`, o altri campi: aggiungi/rimuovi SOLO entry sotto `provider.mlx.models`.
-4. `docs/MODELS.md` - tabelle "Profili default" e "Altri": tieni la riga del modello con size e motivazione.
+1. `config/llm-dash.toml` - `[profiles.<name>]` section: every startable profile has `label`, `tag`, `path` (relative to `models_dir`), `size_gb`, `ctx`, `tier`, `note`, and optionally `[profiles.<name>.chat_template_args]`. This is the **single source of truth**: `bin/llm-serve` and `main.py` read it at runtime, they must not be edited by hand.
+2. `config/opencode.json.example` - `provider.mlx.models`: key = absolute path of the model, value = `{ name, limit:{context, output} }`.
+3. `~/.config/opencode/opencode.json` (LIVE config, outside the repo) - same `provider.mlx.models` block. DO NOT touch `agent`, `mcp`, the `openrouter` provider, or other fields: add/remove ONLY entries under `provider.mlx.models`.
+4. `docs/MODELS.md` - "Default profiles" and "Other" tables: keep the model's row with size and rationale.
 
-Le chiavi profilo in `config/llm-dash.toml` devono coincidere con i nomi usati in dashboard. I path assoluti (models_dir + path) devono coincidere tra i due `opencode.json` e `MODELS.md`.
+The profile keys in `config/llm-dash.toml` must match the names used in the dashboard. The absolute paths (models_dir + path) must match across the two `opencode.json` files and `MODELS.md`.
 
-### 3. Regole di classificazione (tier)
+### 3. Classification rules (tier)
 
-Decidi il tier di ogni modello su disco con questa logica, basata sui findings reali del setup (vedi `docs/EVALS.md`):
+Decide the tier of each model on disk with this logic, based on the real findings of the setup (see `docs/EVALS.md`):
 
-- **`default`** (profilo agentico daily driver): formato MLX **E** size on-disk >= ~16 GB **E** famiglia con tool-calling parsato da `mlx_lm.server`. Parser supportati: GLM-4.7 (GLM47), Qwen3 / Qwen3-Coder, Kimi K2, MiniMax M2.
-- **`other`** (profilo avviabile ma non daily driver): MLX servibile da `mlx_lm.server`, ma con almeno un caveat: size < 16 GB (sotto il floor agentic affidabile) **oppure** famiglia con parser tool NON supportato nativamente (Qwen2.5-Coder, Mistral, Gemma, DeepSeek-V2 → girano in chat ma senza tool calling affidabile).
-- **NON profilo** (presente su disco ma fuori da `config/llm-dash.toml`; in `MODELS.md` resta documentato con profilo `-`):
-  - formato **GGUF** → `mlx_lm.server` carica solo MLX, non è servibile qui;
-  - modello **vision-only** usato per screenshot/UI (es. Qwen3-VL) → caso d'uso diverso, non profilo testo;
-  - **embedding** → gestito da LM Studio.
+- **`default`** (agentic daily driver profile): format MLX **AND** on-disk size >= ~16 GB **AND** a family with tool calling parsed by `mlx_lm.server`. Supported parsers: GLM-4.7 (GLM47), Qwen3 / Qwen3-Coder, Kimi K2, MiniMax M2.
+- **`other`** (startable profile but not a daily driver): MLX servable by `mlx_lm.server`, but with at least one caveat: size < 16 GB (below the reliable agentic floor) **or** a family whose tool parser is NOT natively supported (Qwen2.5-Coder, Mistral, Gemma, DeepSeek-V2 → they run in chat but without reliable tool calling).
+- **NOT a profile** (present on disk but outside `config/llm-dash.toml`; in `MODELS.md` it stays documented with profile `-`):
+  - **GGUF** format → `mlx_lm.server` only loads MLX, it is not servable here;
+  - **vision-only** model used for screenshots/UI (e.g. Qwen3-VL) → different use case, not a text profile;
+  - **embedding** → handled by LM Studio.
 
-In caso di dubbio sul parser, default a `other` e segnalalo nel report (non promuovere a `default` senza certezza).
+If in doubt about the parser, default to `other` and flag it in the report (do not promote to `default` without certainty).
 
-### 4. Calcola il diff e applica
+### 4. Compute the diff and apply
 
-- **Da aggiungere**: modello su disco classificato `default`/`other` ma assente in uno dei 4 punti → aggiungilo in tutti.
-- **Da rimuovere**: entry in una config che punta a un path NON più presente su disco → rimuovila da tutti i 4 punti.
-- **Da riclassificare**: tier in `config/llm-dash.toml` non coerente con le regole sopra → correggi `tier` e sposta la riga in `MODELS.md`.
+- **To add**: model on disk classified `default`/`other` but missing from one of the 4 places → add it to all of them.
+- **To remove**: entry in a config that points to a path NO longer present on disk → remove it from all 4 places.
+- **To reclassify**: tier in `config/llm-dash.toml` not consistent with the rules above → fix `tier` and move the row in `MODELS.md`.
 
-Per `size_gb` usa l'intero più vicino al `du -sh`. Per `ctx`/`context` usa il context nativo del modello se lo conosci con certezza, altrimenti 32768 (conservativo). `output` = 8192. Per `chat_template_args`, aggiungi `enable_thinking = false` solo ai modelli che lo supportano (GLM-4.7, Qwen3.6, Qwen3.8).
+For `size_gb` use the integer closest to `du -sh`. For `ctx`/`context` use the model's native context if you know it for certain, otherwise 32768 (conservative). `output` = 8192. For `chat_template_args`, add `enable_thinking = false` only to the models that support it (GLM-4.7, Qwen3.6, Qwen3.8).
 
-### 5. Valida (obbligatorio prima del report)
+### 5. Validate (mandatory before the report)
 
 ```bash
 python3 -c "import tomllib; d=tomllib.load(open('config/llm-dash.toml','rb')); print(f'{len(d[\"profiles\"])} profili OK')"
@@ -66,16 +66,16 @@ python3 -m json.tool ~/.config/opencode/opencode.json >/dev/null
 make models
 ```
 
-`make models` deve elencare esattamente i profili che hai messo in `config/llm-dash.toml`. Se la dashboard è attiva, `curl -s http://127.0.0.1:1230/api/profiles` deve restituire gli stessi profili con i tier giusti.
+`make models` must list exactly the profiles you put in `config/llm-dash.toml`. If the dashboard is running, `curl -s http://127.0.0.1:1230/api/profiles` must return the same profiles with the right tiers.
 
-### 6. Report finale
+### 6. Final report
 
-Chiudi con una tabella: per ogni modello → tier assegnato, azione (added/removed/reclassified/unchanged), e i file toccati. Elenca esplicitamente eventuali modelli lasciati fuori dai profili e perché (GGUF / vision / embedding / parser incerto). Non committare: lascia la review all'utente.
+Close with a table: for each model → assigned tier, action (added/removed/reclassified/unchanged), and the files touched. Explicitly list any models left out of the profiles and why (GGUF / vision / embedding / uncertain parser). Do not commit: leave the review to the user.
 
 ---
 
-## Note
+## Notes
 
-- Lo stato attuale (novembre 2026): 1 profilo `default` (`coder`, anche `server.default_profile`) + 2 `other` (`qwen35-9b`, `qwen38`); gemma-4-E4B (GGUF) resta fuori dai profili. Se togli il modello di `server.default_profile`, scegline un altro: `llm-up` senza argomenti lo usa. Dettaglio in [MODELS.md](MODELS.md).
-- Se aggiungi una famiglia nuova come `default`, verifica prima che `mlx_lm.server` ne parsi i tool: lancia il server e fai una chiamata con un tool, controlla che il tool_call venga emesso. I findings in [EVALS.md](EVALS.md) elencano cosa è parsato e cosa no.
-- Per aggiungere un modello basta editare `config/llm-dash.toml`: `bin/llm-serve` e `main.py` lo leggono a runtime. Non serve toccare il codice.
+- Current state (November 2026): 1 `default` profile (`coder`, also `server.default_profile`) + 2 `other` (`qwen35-9b`, `qwen38`); gemma-4-E4B (GGUF) stays outside the profiles. If you remove the model of `server.default_profile`, pick another one: `llm-up` with no arguments uses it. Details in [MODELS.md](MODELS.md).
+- If you add a new family as `default`, first check that `mlx_lm.server` parses its tools: launch the server and make a call with a tool, check that the tool_call is emitted. The findings in [EVALS.md](EVALS.md) list what is parsed and what is not.
+- To add a model, just edit `config/llm-dash.toml`: `bin/llm-serve` and `main.py` read it at runtime. No need to touch the code.
