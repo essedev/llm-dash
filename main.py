@@ -39,15 +39,42 @@ SWITCH_TASK: dict[str, Any] = {"running": False, "profile": None, "started": 0.0
 
 # ---------- helpers ----------
 
+def _listens_on_llm_port(p: psutil.Process) -> bool:
+    try:
+        return any(
+            c.status == psutil.CONN_LISTEN and c.laddr and c.laddr.port == LLM_PORT
+            for c in p.net_connections(kind="tcp")
+        )
+    except (psutil.NoSuchProcess, psutil.AccessDenied):
+        return False
+
+
+def _is_llm_server(p: psutil.Process, cmdline: list[str]) -> bool:
+    """mlx_lm.server, or omlx serve listening on LLM_PORT.
+
+    omlx retitles its processes omlx-server, short-lived helpers included, so
+    the title alone does not identify the server: the listening port does.
+    """
+    if any("mlx_lm.server" in c for c in cmdline):
+        return True
+    return bool(cmdline and cmdline[0].startswith("omlx-server")) and (
+        _listens_on_llm_port(p)
+    )
+
+
 def find_mlx_server_pid() -> int | None:
-    for p in psutil.process_iter(["pid", "name", "cmdline"]):
+    found: dict[int, int] = {}  # pid -> parent pid
+    for p in psutil.process_iter(["pid", "ppid", "cmdline"]):
         try:
             cmdline = p.info["cmdline"] or []
-            if any("mlx_lm.server" in c for c in cmdline):
-                return p.info["pid"]
+            if _is_llm_server(p, cmdline):
+                found[p.info["pid"]] = p.info["ppid"]
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             continue
-    return None
+    # omlx's forked helpers inherit the listening socket: the server is the
+    # candidate whose parent is not a candidate itself.
+    roots = [pid for pid, ppid in found.items() if ppid not in found]
+    return min(roots) if roots else None
 
 
 def server_uptime(pid: int) -> int:
