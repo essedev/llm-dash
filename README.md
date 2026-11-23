@@ -1,130 +1,95 @@
 # LLM Dash
 
-Piattaforma personale per gestire LLM locali su Apple Silicon - control plane + dashboard web + integrazione opencode.
+**English** · [Italiano](README.it.md)
 
-```
-   LLM·Dash
-   ──────────
-   Local AI runtime + chat browser + control panel
-   Optimized for MacBook Pro M5 / 32 GB unified memory
-```
+A control plane and web dashboard for running local LLMs on Apple Silicon with `mlx_lm.server`: named model profiles, one-click switching, a memory pressure monitor and a streaming chat that shows the model's reasoning.
 
-## In sintesi
+![LLM Dash: server status and profiles on the left, chat with reasoning on the right](docs/images/dashboard.png)
 
-- **Runtime backend**: `mlx_lm.server` (Apple MLX nativo, ~32 t/s su MoE 4-bit)
-- **Modello core**: Qwen3.6-35B-A3B (MoE, profilo `coder`); avviabili fuori dai default il dense Qwen3.8-27B e Qwen3.5-9B, vedi [docs/MODELS.md](docs/MODELS.md)
-- **Frontend agent**: opencode (CLI agentic)
-- **UI web**: dashboard FastAPI + Tailwind v4 + Alpine.js (porta 1230)
-- **1 modello attivo per volta** (32 GB non bastano per 2 MoE da 16+ GB)
+## Why it exists
 
-## Quick start
+On a 32 GB Mac only one 16-20 GB model fits at a time, and whether it runs well depends on memory you cannot see from the terminal: wired memory, compression, swap. `mlx_lm.server` is the fastest runtime here (about 5-15% faster than LM Studio on the same weights, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)), but it has no model management and no UI.
+
+LLM Dash adds the missing layer:
+
+- **Profiles** in one TOML file: model path, context, tier, chat template args (for example `enable_thinking`). The same file drives the shell scripts, the dashboard and the opencode setup.
+- **Switching** from the browser or the terminal, with one model loaded at a time.
+- **Memory**: a breakdown of wired, active, compressed, inactive and free memory, with the macOS pressure level and swap.
+- **Chat**: streaming Markdown with syntax highlighting, the model's reasoning in a collapsible box, conversations kept in the browser.
+
+How far this setup goes for agentic coding was measured in a separate repository, **[local-llm-eval](https://github.com/essedev/local-llm-eval)**: which models hold an agentic loop, where 4-bit quantization starts corrupting output, how a local model compares with cloud models on small tasks. Summary in [docs/EVALS.md](docs/EVALS.md).
+
+## Requirements
+
+- Apple Silicon Mac. Built and measured on a MacBook Pro M5 with 32 GB, macOS 26 Tahoe.
+- [uv](https://docs.astral.sh/uv/) and `mlx-lm`: `uv tool install mlx-lm`.
+- [pnpm](https://pnpm.io/) to build the CSS.
+- MLX models under `~/.lmstudio/models/` (downloaded with LM Studio or `huggingface-cli`). The folder is `server.models_dir` in `config/llm-dash.toml`.
+- Optional: tmux (`llm-up` runs the server in a tmux session when available), [opencode](https://opencode.ai) as the coding agent.
+
+## Installation
 
 ```bash
-# 1. Setup (una volta sola)
-make setup                   # symlink script + build CSS
+make setup                   # symlink bin/ scripts into ~/.local/bin + build CSS
 
-# 2. Wired memory limit (una volta, manuale per sudo)
+# Wired memory limit, once (needs sudo)
 sudo sysctl iogpu.wired_limit_mb=28000
-# Persistente al boot:
+# Persistent across reboots:
 sudo cp config/com.local.wired-limit.plist /Library/LaunchDaemons/
 sudo launchctl load /Library/LaunchDaemons/com.local.wired-limit.plist
 
-# 3. Config opencode (se non già fatta)
+# opencode, optional: replace /Users/you with your home
 cp config/opencode.json.example ~/.config/opencode/opencode.json
-
-# 4. Avvia tutto
-llm-up                       # avvia il profilo default (coder) su porta 1234
-llm-dash --bg                # avvia dashboard su porta 1230
-open http://127.0.0.1:1230   # control panel + chat
 ```
 
-## Comandi quotidiani
+Then put your models in `config/llm-dash.toml`. The profiles in the repo are the author's; `docs/MODEL_SYNC.md` is a prompt that lets a coding agent realign the TOML, the opencode config and the docs with the models actually on disk.
 
-| Comando | Cosa fa |
+## Usage
+
+```bash
+llm-up                       # start the default profile on port 1234
+llm-dash --bg                # start the dashboard on port 1230
+open http://127.0.0.1:1230
+```
+
+| Command | What it does |
 |---|---|
-| `llm-up [profile]` | Avvia mlx_lm.server con un profilo (default: `server.default_profile`, oggi `coder`) |
-| `llm-switch <profile>` | Cambia modello (kill + restart) |
-| `llm-down` | Ferma server LLM |
-| `llm-dash` | Dashboard UI in foreground |
-| `llm-dash --bg` | Dashboard in background |
-| `llm-dash stop` | Ferma dashboard |
+| `llm-up [profile]` | Start `mlx_lm.server` with a profile (default: `server.default_profile`) |
+| `llm-switch <profile>` | Switch model (kill + restart) |
+| `llm-down` | Stop the LLM server |
+| `llm-dash` | Dashboard in the foreground |
+| `llm-dash --bg` | Dashboard in the background |
+| `llm-dash stop` | Stop the dashboard |
+| `make models` | List the profiles |
+| `make help` | Every make target |
 
-Profilo default: `coder` (Qwen3.6-35B).
-Altri (avviabili, non daily driver): `qwen35-9b`, `qwen38`. Lista completa: `make models`.
+Every profile serves an OpenAI-compatible API on `http://127.0.0.1:1234/v1`.
 
-Vedi `make help` per l'elenco completo dei comandi.
+## Documentation
 
-## Documentazione
-
-| Documento | Contenuto |
+| Document | Content |
 |---|---|
-| [docs/HARDWARE.md](docs/HARDWARE.md) | M5, RAM unificata, Neural Accelerators, wired_limit |
-| [docs/MODELS.md](docs/MODELS.md) | Catalogo modelli per tier (default / altri), classifica, benchmark |
-| [docs/MODEL_SYNC.md](docs/MODEL_SYNC.md) | Prompt per un LLM che riallinea modelli su disco ↔ config (llm-serve, dash, opencode) |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Decisioni tecniche: mlx_lm vs LM Studio, 1 modello/volta, SSE vs WS |
-| [docs/MEMORY.md](docs/MEMORY.md) | available vs used, KV cache, swap, headroom budgeting |
-| [docs/OPENCODE.md](docs/OPENCODE.md) | Integrazione opencode, provider mlx, agent profiles |
-| [docs/DASHBOARD.md](docs/DASHBOARD.md) | Stack della UI, file structure, come modificare |
-| [docs/RUNBOOK.md](docs/RUNBOOK.md) | Workflow quotidiano, troubleshooting, recovery |
-| [docs/EVALS.md](docs/EVALS.md) | Esperimenti su limiti reali del setup, con indice dei round |
-
-## Quanto regge davvero questo setup
-
-I limiti di questa configurazione sono stati misurati, non stimati: quali modelli reggono un loop agentico, dove la quantizzazione 4-bit inizia a corrompere l'output, quanto vale un modello locale contro il cloud su un task piccolo. Dati grezzi, scoring e metodo stanno in un repo separato, **[local-llm-eval](https://github.com/essedev/local-llm-eval)**, con il perimetro di validità dichiarato in testa: valgono per scaffold corti, non per refactor multi-file o long-context.
-
-Sintesi dei take-away in [docs/EVALS.md](docs/EVALS.md).
-
-## Struttura progetto
-
-```
-llm-dash/
-├── README.md                 ← entry point
-├── Makefile                  ← comandi standard
-├── install.sh                ← deploy script
-│
-├── docs/                     ← documentazione completa
-│   ├── HARDWARE.md
-│   ├── MODELS.md
-│   ├── ARCHITECTURE.md
-│   ├── MEMORY.md
-│   ├── OPENCODE.md
-│   ├── DASHBOARD.md
-│   ├── RUNBOOK.md
-│   └── EVALS.md             ← writeup esperimenti su limiti agentic reali
-│
-├── bin/                      ← script (symlinkati a ~/.local/bin/)
-│   ├── llm-serve             ← wrapper mlx_lm.server con profili
-│   ├── llm-up                ← avvia 1 server in tmux
-│   ├── llm-switch            ← alias di llm-up
-│   ├── llm-down              ← ferma tutto
-│   └── llm-dash              ← lancia dashboard
-│
-├── config/                   ← config esempi
-│   ├── opencode.json.example
-│   └── com.local.wired-limit.plist
-│
-├── main.py                   ← FastAPI dashboard (backend)
-├── pyproject.toml            ← uv project (deps Python)
-├── package.json              ← pnpm (deps Tailwind)
-├── src/input.css             ← Tailwind v4 source
-├── static/
-│   ├── output.css            ← CSS buildato
-│   ├── app.js                ← Alpine logic (chat + dash + storage)
-│   ├── alpine.min.js
-│   ├── marked.min.js
-│   ├── highlight.min.js
-│   └── highlight.css
-└── templates/
-    └── index.html            ← UI markup (Jinja2 template)
-```
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Technical decisions: mlx_lm vs LM Studio, one model at a time, SSE vs WebSocket |
+| [docs/DASHBOARD.md](docs/DASHBOARD.md) | UI stack, endpoints, streaming render, CSS classes |
+| [docs/MODELS.md](docs/MODELS.md) | Model catalog by tier, rankings, benchmarks |
+| [docs/MODEL_SYNC.md](docs/MODEL_SYNC.md) | Prompt for a coding agent that realigns models on disk and config |
+| [docs/MEMORY.md](docs/MEMORY.md) | available vs used, KV cache, swap, headroom budget |
+| [docs/HARDWARE.md](docs/HARDWARE.md) | M5, unified memory, Neural Accelerators, wired limit |
+| [docs/OPENCODE.md](docs/OPENCODE.md) | opencode integration, mlx provider |
+| [docs/RUNBOOK.md](docs/RUNBOOK.md) | Daily workflow, troubleshooting, recovery |
+| [docs/EVALS.md](docs/EVALS.md) | Experiments on the real limits of this setup |
+| [docs/CONVENTIONS.md](docs/CONVENTIONS.md) | Language, glossary, code conventions |
 
 ## Stack
 
-- **Python**: uv 0.10, FastAPI, uvicorn, httpx, psutil, sse-starlette, Jinja2
-- **Frontend**: Tailwind CSS v4 (CSS-first via @theme), Alpine.js 3.14, marked.js, highlight.js
-- **Backend LLM**: mlx-lm 0.31 + mlx-metal 0.31 (Apple Silicon native)
-- **Tooling**: pnpm 10, Node per Tailwind CLI build
+- **Backend**: Python 3.12 with uv, FastAPI, uvicorn, httpx, psutil, sse-starlette, Jinja2.
+- **Frontend**: Tailwind CSS v4 (CSS-first via `@theme`), Alpine.js 3.14, marked, highlight.js, served as static files with no JS bundler.
+- **LLM runtime**: mlx-lm 0.31 on Apple MLX.
 
-## Hardware target
+## Status
 
-MacBook Pro M5, 10-core CPU (4P+6E), 10-core GPU con Neural Accelerators, 32 GB unified memory, macOS 26.x Tahoe.
+A personal tool, used daily on one machine and shared as a reference. It assumes macOS, Apple Silicon and the paths above; there are no releases and no automated tests.
+
+## License
+
+[MIT](LICENSE). The bundled Alpine.js, marked and highlight.js keep their own licenses, listed at the top of `LICENSE`.
