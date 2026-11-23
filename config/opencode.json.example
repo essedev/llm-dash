@@ -23,11 +23,11 @@
           "limit": { "context": 65536, "output": 8192 }
         },
         "/Users/you/.lmstudio/models/mlx-community/Qwen3.5-9B-MLX-4bit": {
-          "name": "Qwen3.5-9B (altri - piccolo)",
+          "name": "Qwen3.5-9B (others, small)",
           "limit": { "context": 32768, "output": 8192 }
         },
         "/Users/you/.lmstudio/models/lmstudio-community/Qwen3.8-27B-MLX-4bit": {
-          "name": "Qwen3.8-27B (altri - dense, ~7 t/s)",
+          "name": "Qwen3.8-27B (others, dense, ~7 t/s)",
           "limit": { "context": 65536, "output": 8192 }
         }
       }

@@ -23,14 +23,14 @@ if [[ "${1:-}" == "--bg" ]]; then
   cd "$PROJECT"
   nohup uv run python main.py > /tmp/llm-dash.log 2>&1 &
   disown -a
-  echo "llm-dash avviato in background su http://127.0.0.1:$PORT"
+  echo "llm-dash started in the background on http://127.0.0.1:$PORT"
   echo "Log: tail -f /tmp/llm-dash.log"
   exit 0
 fi
 
 if [[ "${1:-}" == "stop" ]]; then
   stop_existing
-  echo "llm-dash fermato"
+  echo "llm-dash stopped"
   exit 0
 fi
 

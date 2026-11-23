@@ -20,7 +20,7 @@ CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "llm-dash.toml
 def _load() -> dict:
     """Return the parsed config/llm-dash.toml, exiting if the file is missing."""
     if not CONFIG_PATH.exists():
-        print(f"ERROR: {CONFIG_PATH} non trovato", file=sys.stderr)
+        print(f"ERROR: {CONFIG_PATH} not found", file=sys.stderr)
         sys.exit(1)
     with open(CONFIG_PATH, "rb") as f:
         return tomllib.load(f)
@@ -41,19 +41,19 @@ def cmd_list() -> None:
     defaults = {k: v for k, v in profiles.items() if v.get("tier") == "default"}
     others = {k: v for k, v in profiles.items() if v.get("tier") != "default"}
 
-    print("Profili avviabili (llm-up <profile> / llm-switch <profile>):")
+    print("Startable profiles (llm-up <profile> / llm-switch <profile>):")
     print()
     if defaults:
-        print("  default (MoE agentici, tool calling parsato da mlx_lm.server):")
+        print("  default (agentic MoE models, tool calling parsed by mlx_lm.server):")
         for key, p in defaults.items():
             print(f"    {key:<12} {p['label']:<30} {p.get('note', '')}")
     if others:
         print()
-        print("  altri (avviabili, ma non daily driver agentici - vedi docs/MODELS.md):")
+        print("  others (startable, but not agentic daily drivers, see docs/MODELS.md):")
         for key, p in others.items():
             print(f"    {key:<12} {p['label']:<30} {p.get('note', '')}")
     print()
-    print(f"Tutti girano sulla porta {port} (1 modello attivo per volta).")
+    print(f"All run on port {port} (one active model at a time).")
     print(f"Model store: {models_dir}")
 
 
@@ -64,8 +64,8 @@ def cmd_profile(name: str) -> None:
 
     if name not in profiles:
         available = ", ".join(sorted(profiles.keys()))
-        print(f"ERROR: profilo '{name}' non trovato", file=sys.stderr)
-        print(f"Profili disponibili: {available}", file=sys.stderr)
+        print(f"ERROR: profile '{name}' not found", file=sys.stderr)
+        print(f"Available profiles: {available}", file=sys.stderr)
         sys.exit(1)
 
     p = profiles[name]
@@ -101,7 +101,7 @@ def cmd_server(field: str) -> None:
     cfg = _load()
     server = cfg.get("server", {})
     if field not in server:
-        print(f"ERROR: campo '{field}' non trovato in [server]", file=sys.stderr)
+        print(f"ERROR: field '{field}' not found in [server]", file=sys.stderr)
         sys.exit(1)
     val = server[field]
     if isinstance(val, str):

@@ -31,7 +31,7 @@ eval "$PROFILE_CONFIG"
 PORT="${_USER_PORT:-$PORT}"
 
 if [[ ! -d "$MODEL" ]]; then
-  echo "ERROR: modello non trovato in $MODEL" >&2
+  echo "ERROR: model not found in $MODEL" >&2
   exit 1
 fi
 

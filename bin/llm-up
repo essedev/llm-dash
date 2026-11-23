@@ -14,7 +14,7 @@ PROFILE="${1:-$(python3 "$SCRIPT_DIR/_config.py" server default_profile)}"
 
 # Stop the previous server, if any.
 if pgrep -f "mlx_lm.server" >/dev/null; then
-  echo "fermo mlx_lm.server precedente..."
+  echo "stopping the previous mlx_lm.server..."
   pkill -f "mlx_lm.server" 2>/dev/null || true
   sleep 2
 fi
@@ -22,12 +22,12 @@ fi
 if command -v tmux >/dev/null && [[ "${LLM_NO_TMUX:-0}" != "1" ]]; then
   tmux kill-session -t llm 2>/dev/null || true
   tmux new-session -d -s llm -n server "llm-serve $PROFILE"
-  echo "Server '$PROFILE' avviato in tmux 'llm' (porta 1234)"
+  echo "Server '$PROFILE' started in tmux session 'llm' (port 1234)"
   echo "Logs:  tmux attach -t llm"
   echo "Stop:  llm-down"
 else
   nohup llm-serve "$PROFILE" > "/tmp/llm-${PROFILE}.log" 2>&1 &
   disown -a
-  echo "Server '$PROFILE' avviato in background (porta 1234)"
+  echo "Server '$PROFILE' started in the background (port 1234)"
   echo "Logs:  tail -f /tmp/llm-${PROFILE}.log"
 fi

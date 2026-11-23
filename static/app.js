@@ -388,11 +388,11 @@ function dash() {
     fitMessage(avail, profile) {
       const p = (window.__lastProfiles || {})[profile];
       const need = p ? p.size_gb : null;
-      if (!need) return 'RAM riusabile (libera + cache + compressa)';
+      if (!need) return 'Reusable RAM (free + cache + compressed)';
       const margin = avail - (need + 6); // weights + ~6 GB estimated KV cache
-      if (margin > 4) return `Profile attivo (${need + 6} GB stimati): margine ${margin.toFixed(1)} GB`;
-      if (margin > 0) return `Profile attivo (${need + 6} GB stimati): margine stretto ${margin.toFixed(1)} GB`;
-      return `Profile attivo (${need + 6} GB stimati): ${(-margin).toFixed(1)} GB sotto - rischio swap`;
+      if (margin > 4) return `Active profile (${need + 6} GB estimated): ${margin.toFixed(1)} GB margin`;
+      if (margin > 0) return `Active profile (${need + 6} GB estimated): tight margin, ${margin.toFixed(1)} GB`;
+      return `Active profile (${need + 6} GB estimated): ${(-margin).toFixed(1)} GB short, swap risk`;
     }
   };
 }
@@ -606,7 +606,7 @@ function chat() {
           signal: this._abort.signal,
         });
         if (!resp.ok || !resp.body) {
-          this.streamBuf = '[errore HTTP ' + resp.status + ']';
+          this.streamBuf = '[HTTP error ' + resp.status + ']';
           this.flush();
           return;
         }
@@ -635,10 +635,10 @@ function chat() {
           return;
         }
         if (e.name === 'AbortError') {
-          if (this.streamBuf) this.streamBuf += ' [interrotto]';
-          else this.streamBuf = '[interrotto]';
+          if (this.streamBuf) this.streamBuf += ' [interrupted]';
+          else this.streamBuf = '[interrupted]';
         } else {
-          this.streamBuf += '\n[errore: ' + e.message + ']';
+          this.streamBuf += '\n[error: ' + e.message + ']';
         }
         this.flush();
       }
@@ -699,7 +699,7 @@ function chat() {
           }
         } catch(e) {}
       } else if (event === 'error') {
-        this.streamBuf += '\n[errore: ' + data + ']';
+        this.streamBuf += '\n[error: ' + data + ']';
       }
     },
 

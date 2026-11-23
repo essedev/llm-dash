@@ -34,21 +34,21 @@ enable_thinking = true
 
 [profiles.qwen35-9b]
 label = "Qwen3.5-9B"
-tag = "altri · piccolo"
+tag = "others · small"
 path = "mlx-community/Qwen3.5-9B-MLX-4bit"
 size_gb = 6
 ctx = 32768
 tier = "other"
-note = "leggero, sotto la soglia agentic affidabile"
+note = "light, below the reliable agentic floor"
 
 [profiles.qwen38]
 label = "Qwen3.8-27B"
-tag = "altri · dense"
+tag = "others · dense"
 path = "lmstudio-community/Qwen3.8-27B-MLX-4bit"
 size_gb = 15
 ctx = 262144
 tier = "other"
-note = "tool calling ok, ~7 t/s: no daily driver agentico"
+note = "tool calling ok, ~7 t/s: not an agentic daily driver"
 
 [profiles.qwen38.chat_template_args]
 enable_thinking = false

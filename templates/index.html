@@ -111,8 +111,8 @@
       <!-- Other profiles (present on disk, not daily drivers). -->
       <div x-show="Object.keys(otherProfiles).length" class="mt-3">
         <div class="flex items-center gap-2 mb-2">
-          <span class="caption">Altri</span>
-          <span class="caption text-[var(--color-fg-mute)]">non agentici / sperimentali</span>
+          <span class="caption">Others</span>
+          <span class="caption text-[var(--color-fg-mute)]">not agentic / experimental</span>
           <span class="rule-x flex-1"></span>
         </div>
         <div class="grid grid-cols-2 gap-2">
@@ -305,7 +305,7 @@
         <div class="flex items-center gap-3 mt-0.5 ml-2">
           <span class="caption">Conversation</span>
           <span x-show="ctxLimit() > 0" class="caption flex items-center gap-2"
-                :title="(lastUsage.prompt_tokens > 0 && !streaming ? 'Contesto reale (server): ' : 'Contesto stimato (~4 char/tok): ') + ctxUsed() + ' tokens su ' + ctxLimit()">
+                :title="(lastUsage.prompt_tokens > 0 && !streaming ? 'Real context (server): ' : 'Estimated context (~4 chars/token): ') + ctxUsed() + ' tokens of ' + ctxLimit()">
             <span class="text-[var(--color-fg-ghost)]">·</span>
             <span class="ctx-meter">
               <span class="ctx-meter-fill"
@@ -317,7 +317,7 @@
                        x-text="fmtCtx(ctxUsed())"></span><span class="text-[var(--color-fg-mute)]">/</span><span class="mono-num text-[var(--color-fg-mute)]" x-text="fmtCtx(ctxLimit())"></span> <span class="text-[var(--color-fg-mute)]">CTX</span></span>
           </span>
           <span x-show="lastStats.tps" class="caption flex items-center gap-2.5"
-                title="Throughput dell'ultima risposta: token/secondo, token totali, secondi trascorsi">
+                title="Throughput of the last answer: tokens per second, total tokens, elapsed seconds">
             <span class="text-[var(--color-fg-ghost)]">·</span>
             <span><span class="text-[var(--color-accent)] mono-num" x-text="lastStats.tps"></span> <span class="text-[var(--color-fg-mute)]">tok/s</span></span>
             <span class="text-[var(--color-fg-ghost)]">·</span>
@@ -422,7 +422,7 @@
             @click="jumpToBottom()"
             class="jump-bottom">
       <span class="font-mono">↓</span>
-      <span x-text="streaming ? 'Segui la generazione' : 'Vai in fondo'">Vai in fondo</span>
+      <span x-text="streaming ? 'Follow the generation' : 'Jump to bottom'">Jump to bottom</span>
     </button>
 
     <!-- Composer -->

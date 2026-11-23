@@ -318,10 +318,10 @@ async def api_chat(req: Request) -> EventSourceResponse:
 
     async def stream():
         if not pid:
-            yield {"event": "error", "data": "server non in esecuzione"}
+            yield {"event": "error", "data": "server not running"}
             return
         if not full_path:
-            yield {"event": "error", "data": "modello non disponibile"}
+            yield {"event": "error", "data": "model not available"}
             return
 
         messages = [

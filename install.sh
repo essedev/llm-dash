@@ -24,7 +24,7 @@ for script in "${SCRIPTS[@]}"; do
   dst="$TARGET_DIR/$script"
 
   if [[ ! -f "$src" ]]; then
-    echo "  [skip] $script (non trovato in bin/)"
+    echo "  [skip] $script (not found in bin/)"
     continue
   fi
 
@@ -56,23 +56,20 @@ done
 echo
 echo "==> Done."
 echo
-echo "Verifica con: which llm-up && llm-up --help 2>&1 | head -5"
+echo "Verify with: which llm-up && llm-serve list"
 echo
-echo "Note finali (manuali):"
-echo "  1. Wired memory limit (richiede sudo, una volta sola):"
+echo "Manual final steps:"
+echo "  1. Wired memory limit (needs sudo, once):"
 echo "       sudo sysctl iogpu.wired_limit_mb=28000"
-echo "     Per persistere al boot, copia il LaunchDaemon:"
+echo "     To persist it across reboots, copy the LaunchDaemon:"
 echo "       sudo cp $REPO_DIR/config/com.local.wired-limit.plist /Library/LaunchDaemons/"
 echo "       sudo launchctl load /Library/LaunchDaemons/com.local.wired-limit.plist"
 echo
 echo "  2. Config opencode:"
 echo "       cp $REPO_DIR/config/opencode.json.example ~/.config/opencode/opencode.json"
-echo "     (poi edita i path dei modelli se diversi dal default ~/.lmstudio/models/...)"
+echo "     (then replace /Users/you with your home in the model paths)"
 echo
-echo "  3. Modelli MLX richiesti (verifica con: lms ls):"
-echo "     - lmstudio-community/GLM-4.7-Flash-MLX-4bit"
-echo "     - unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit"
-echo "     - lmstudio-community/Qwen3-30B-A3B-Instruct-2507-MLX-4bit"
-echo "     - lmstudio-community/Qwen3-Coder-30B-A3B-Instruct-MLX-4bit"
+echo "  3. Models: the profiles in config/llm-dash.toml must point to MLX models"
+echo "     under ~/.lmstudio/models (list them with: make models)"
 echo
-echo "  4. Avvio dashboard: llm-dash --bg  (poi http://127.0.0.1:1230)"
+echo "  4. Start the dashboard: llm-dash --bg  (then http://127.0.0.1:1230)"

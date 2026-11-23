@@ -35,30 +35,30 @@ llm-down: ## Stop every mlx_lm.server
 	@~/.local/bin/llm-down
 
 up: ## Start the full stack (LLM + dashboard) in the tmux session "llm"
-	@command -v tmux >/dev/null || { echo "tmux non installato"; exit 1; }
+	@command -v tmux >/dev/null || { echo "tmux is not installed"; exit 1; }
 	@~/.local/bin/llm-up
 	@sleep 1
 	@if tmux list-panes -t llm:server 2>/dev/null | grep -q '^1:'; then \
-		echo "Dashboard pane gia' presente nella session 'llm'"; \
+		echo "Dashboard pane already present in the 'llm' session"; \
 	else \
 		tmux split-window -t llm:server -h "cd $(CURDIR) && uv run python main.py"; \
 		tmux select-layout -t llm:server even-horizontal; \
-		echo "Dashboard avviata nella session 'llm' (pane 1)"; \
+		echo "Dashboard started in the 'llm' session (pane 1)"; \
 	fi
 	@echo ""
-	@echo "Stack online (sopravvive alla chiusura del terminale):"
+	@echo "Stack online (survives closing the terminal):"
 	@echo "  Dashboard:  http://127.0.0.1:1230"
 	@echo "  Attach:     tmux attach -t llm"
-	@echo "  Stop tutto: make down"
+	@echo "  Stop all:   make down"
 
 down: ## Stop the full stack (LLM + dashboard + tmux session)
 	@~/.local/bin/llm-dash stop 2>/dev/null || true
 	@~/.local/bin/llm-down 2>/dev/null || true
 	@tmux kill-session -t llm 2>/dev/null || true
-	@echo "Stack fermato"
+	@echo "Stack stopped"
 
 status: ## Runtime status (active server + memory)
-	@curl -s http://127.0.0.1:1230/api/status 2>/dev/null | python3 -m json.tool || echo "dashboard offline - lancia: make up"
+	@curl -s http://127.0.0.1:1230/api/status 2>/dev/null | python3 -m json.tool || echo "dashboard offline, run: make up"
 
 clean: ## Remove build caches
 	rm -rf static/output.css node_modules/.cache .venv/__pycache__ __pycache__
