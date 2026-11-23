@@ -443,6 +443,51 @@
     animation: cursor-blink 1s step-end infinite;
   }
 
+  /* ─── Ragionamento del modello ─── */
+  /* Altezza massima fissa con scroll interno: il riquadro cresce fino a un tetto e
+     poi resta fermo, così l'inizio della risposta non sposta niente. */
+  .think {
+    margin-bottom: 12px;
+    border: 1px solid var(--color-line-soft);
+    border-radius: 4px;
+    background: var(--color-bg);
+  }
+  .think-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-fg-mute);
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+  }
+  .think-head::-webkit-details-marker { display: none; }
+  .think-head::before {
+    content: '▸';
+    font-size: 11px;
+    color: var(--color-fg-faint);
+  }
+  .think[open] > .think-head::before { content: '▾'; }
+  .think-head:hover { color: var(--color-fg-dim); }
+  .think.live > .think-head { color: var(--color-accent); }
+  .think.live > .think-head span { animation: breath 1.6s ease-in-out infinite; }
+  .think-body {
+    max-height: 16em;
+    overflow-y: auto;
+    padding: 0 12px 10px;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--color-fg-mute);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
   /* ─── Blocchi di codice copiabili ─── */
   .markdown-body pre.code-wrap {
     position: relative;

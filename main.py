@@ -361,9 +361,16 @@ async def api_chat(req: Request) -> EventSourceResponse:
                             choices = chunk.get("choices") or []
                             if choices:
                                 delta = choices[0].get("delta", {})
+                                # mlx_lm.server manda il ragionamento in delta.reasoning,
+                                # altri server OpenAI-compatibili in reasoning_content.
+                                reasoning = delta.get("reasoning") or delta.get("reasoning_content")
                                 content = delta.get("content")
-                                if content:
+                                # Anche i token di ragionamento sono generati: contano per tok/s.
+                                if reasoning or content:
                                     n_tokens += 1
+                                if reasoning:
+                                    yield {"event": "reasoning", "data": reasoning}
+                                if content:
                                     yield {"event": "token", "data": content}
                         except (json.JSONDecodeError, KeyError, IndexError):
                             continue

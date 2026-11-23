@@ -61,7 +61,7 @@ llm-dash/
 | `/api/switch/{profile}` | POST | invoca `llm-up <profile>` come subprocess, async |
 | `/api/stop` | POST | invoca `llm-down` |
 | `/api/logs` | GET | ultimi 50 eventi switch/stop |
-| `/api/chat` | POST | SSE stream, body `{message, history}`, proxy verso mlx_lm.server. Eventi: `token` (delta content), `done` (`{tps, tokens, elapsed, prompt_tokens, completion_tokens}`), `error`. |
+| `/api/chat` | POST | SSE stream, body `{message, history}`, proxy verso mlx_lm.server. Eventi: `reasoning` (delta del ragionamento: `delta.reasoning` di mlx_lm.server, o `reasoning_content`), `token` (delta content), `done` (`{tps, tokens, elapsed, prompt_tokens, completion_tokens}`), `error`. |
 
 ## Comunicazione client ↔ server
 
@@ -136,6 +136,8 @@ Ogni token arriva immediatamente e il render è limitato a uno per frame (`_sche
 - `dropPartialLine()` nasconde l'ultima riga finché non arriva il suo a capo, se è sintassi che cambia la struttura del blocco sopra: uno o due backtick, una sottolineatura `===`/`---`, il separatore di una tabella. Mostrata così com'è comparirebbe come testo e sparirebbe al token dopo.
 - L'ultimo blocco non viene evidenziato finché è in scrittura: lo fa il bubble definitivo alla chiusura del messaggio, via `x-init` con `queueMicrotask` (prima del paint).
 - Il cursore è uno `<span class="stream-cursor">` messo in coda all'ultima riga di testo; non entra in codice, tabelle e `<hr>`.
+
+**Ragionamento** (modelli con `enable_thinking = true`): arriva come evento `reasoning`, separato dalla risposta, e si mostra in un `<details class="think">` sopra di essa. Il riquadro ha un'altezza massima con scroll interno che segue il fondo, e resta aperto fino a fine messaggio: chiuderlo quando parte la risposta farebbe saltare il box. Nel messaggio salvato (`reasoning`, `thinkSecs`) è chiuso di default; resta aperto solo quello appena finito (`openThinkIdx`, non persistito). Il ragionamento non torna nella history mandata al modello: il backend tiene solo `role` e `content`. I suoi token contano per tok/s.
 
 **Aggancio al fondo**: la chat segue la generazione solo finché l'utente resta entro
 `STICK_THRESHOLD_PX` (120px) dal fondo. Sopra quella distanza l'aggancio si stacca e lo
@@ -236,6 +238,7 @@ Vedi `src/input.css` per i token CSS completi.
 | `.dot-legend` | quadratino legenda per la stack-meter |
 | `.bubble-user` / `.bubble-asst` | bubble chat |
 | `.markdown-body.streaming` | risposta in corso, renderizzata come markdown da `StreamRenderer` |
+| `.think` / `.think-head` / `.think-body` | riquadro del ragionamento; `.live` mentre il modello sta ancora pensando |
 | `.stream-cursor` | cursore dello streaming, inserito in coda all'ultima riga di testo così non occupa mai una riga sua |
 | `.code-copy` | bottone copia sul blocco di codice (opacity 0.35 → 1 in hover, stati `.ok` / `.err` per 1,5s) |
 | `.jump-bottom` | pill flottante "torna in fondo", visibile solo quando l'aggancio si è staccato |

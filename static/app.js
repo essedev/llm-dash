@@ -406,6 +406,11 @@ function chat() {
     input: '',
     streaming: false,
     streamBuf: '',
+    // Ragionamento del modello (delta.reasoning), tenuto separato dalla risposta.
+    streamReasoning: '',
+    thinkSecs: null,      // durata del ragionamento, fissata al primo token di risposta
+    _thinkT0: 0,
+    openThinkIdx: -1,     // messaggio appena chiuso il cui ragionamento resta aperto
     stuck: true,
     lastStats: {tps:null, tokens:0, elapsed:0},
     lastUsage: {prompt_tokens:0, completion_tokens:0},
@@ -452,6 +457,7 @@ function chat() {
     },
 
     _loadCurrent() {
+      this.openThinkIdx = -1;
       const all = loadConversations();
       const c = this.currentId ? all[this.currentId] : null;
       if (!c) {
@@ -535,14 +541,46 @@ function chat() {
       this._renderPending = true;
       requestAnimationFrame(() => {
         this._renderPending = false;
+        this._renderThinking();
         const box = this.$refs.streamBox;
-        if (!this.streamBuf || !box) return;
-        // Il renderer vive sull'elemento: x-if lo ricrea a ogni risposta nuova,
-        // e fuori dallo stato Alpine i nodi DOM non finiscono in un proxy reattivo.
-        if (!box._stream) box._stream = new StreamRenderer(box);
-        box._stream.update(this.streamBuf);
+        if (this.streamBuf && box) {
+          // Il renderer vive sull'elemento: x-if lo ricrea a ogni risposta nuova,
+          // e fuori dallo stato Alpine i nodi DOM non finiscono in un proxy reattivo.
+          if (!box._stream) box._stream = new StreamRenderer(box);
+          box._stream.update(this.streamBuf);
+        }
         this._scrollBottom();
       });
+    },
+
+    // Il ragionamento è testo semplice: si appende solo la parte nuova. Il riquadro
+    // ha un'altezza massima e segue il fondo da solo, finché l'utente non ci
+    // scrolla dentro per rileggere.
+    _renderThinking() {
+      const tb = this.$refs.thinkBox;
+      if (!tb) return;
+      const text = this.streamReasoning.trimStart();
+      const shown = tb._shown || 0;
+      if (text.length <= shown) return;
+      const follow = tb.scrollHeight - tb.scrollTop - tb.clientHeight < 24;
+      tb.append(text.slice(shown));
+      tb._shown = text.length;
+      if (follow) tb.scrollTop = tb.scrollHeight;
+    },
+
+    thinkLabel(secs) {
+      return secs == null ? 'Thinking' : 'Thought for ' + secs + 's';
+    },
+
+    _resetStream() {
+      this.streamBuf = '';
+      this.streamReasoning = '';
+      this.thinkSecs = null;
+      this._thinkT0 = 0;
+    },
+
+    _thinkElapsed() {
+      return Math.max(1, Math.round((performance.now() - this._thinkT0) / 1000));
     },
 
     async send() {
@@ -551,7 +589,8 @@ function chat() {
       const history = this.messages.slice();
       this.messages.push({role:'user', content:text});
       this.input = '';
-      this.streamBuf = '';
+      this._resetStream();
+      this.openThinkIdx = -1;
       this.streaming = true;
       this._abort = new AbortController();
       this.persist();
@@ -591,7 +630,7 @@ function chat() {
         if (this._discardStream) {
           this.streaming = false;
           this._abort = null;
-          this.streamBuf = '';
+          this._resetStream();
           this._discardStream = false;
           return;
         }
@@ -640,7 +679,12 @@ function chat() {
           dataSeen = true;
         }
       }
-      if (event === 'token') {
+      if (event === 'reasoning') {
+        if (!this.streamReasoning) this._thinkT0 = performance.now();
+        this.streamReasoning += data;
+        this._scheduleRender();
+      } else if (event === 'token') {
+        if (this.streamReasoning && this.thinkSecs === null) this.thinkSecs = this._thinkElapsed();
         this.streamBuf += data;
         this._scheduleRender();
       } else if (event === 'done') {
@@ -660,8 +704,16 @@ function chat() {
     },
 
     flush() {
-      if (this.streamBuf) this.messages.push({role:'assistant', content: this.streamBuf});
-      this.streamBuf = '';
+      if (this.streamBuf || this.streamReasoning) {
+        const msg = {role:'assistant', content: this.streamBuf};
+        if (this.streamReasoning.trim()) {
+          msg.reasoning = this.streamReasoning.trim();
+          msg.thinkSecs = this.thinkSecs ?? this._thinkElapsed();
+          this.openThinkIdx = this.messages.length;
+        }
+        this.messages.push(msg);
+      }
+      this._resetStream();
       this.streaming = false;
       this._abort = null;
       this.persist();
@@ -677,7 +729,7 @@ function chat() {
       if (real > 0 && !this.streaming) return real;
       let chars = 0;
       for (const m of this.messages) chars += (m.content || '').length;
-      if (this.streaming) chars += (this.streamBuf || '').length;
+      if (this.streaming) chars += (this.streamBuf || '').length + (this.streamReasoning || '').length;
       return Math.ceil(chars / 4);
     },
 

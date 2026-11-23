@@ -354,11 +354,21 @@
           <template x-if="m.role === 'assistant'">
             <div class="max-w-[88%]">
               <div class="bubble-asst-tag">Assistant</div>
-              <!-- queueMicrotask, non $nextTick: in Alpine è un setTimeout e il codice
-                   verrebbe dipinto una volta senza evidenziazione. -->
-              <div class="bubble-asst markdown-body"
-                   x-html="renderMd(m.content)"
-                   x-init="queueMicrotask(() => enhanceCode($el))"></div>
+              <div class="bubble-asst">
+                <!-- Chiuso di default; resta aperto solo sul messaggio appena finito,
+                     che era aperto durante lo streaming: chiuderlo farebbe saltare il box. -->
+                <template x-if="m.reasoning">
+                  <details class="think" x-init="$el.open = (i === openThinkIdx)">
+                    <summary class="think-head"><span x-text="thinkLabel(m.thinkSecs)"></span></summary>
+                    <div class="think-body" x-text="m.reasoning"></div>
+                  </details>
+                </template>
+                <!-- queueMicrotask, non $nextTick: in Alpine è un setTimeout e il codice
+                     verrebbe dipinto una volta senza evidenziazione. -->
+                <div class="markdown-body"
+                     x-html="renderMd(m.content)"
+                     x-init="queueMicrotask(() => enhanceCode($el))"></div>
+              </div>
             </div>
           </template>
         </div>
@@ -366,12 +376,18 @@
 
       <div x-show="streaming">
         <div class="max-w-[88%]">
-          <div class="bubble-asst-tag" x-text="streamBuf ? 'Assistant' : 'Routing prompt'">Assistant</div>
+          <div class="bubble-asst-tag" x-text="(streamBuf || streamReasoning) ? 'Assistant' : 'Routing prompt'">Assistant</div>
           <div class="bubble-asst">
+            <template x-if="streamReasoning">
+              <details class="think" :class="thinkSecs === null && 'live'" open>
+                <summary class="think-head"><span x-text="thinkLabel(thinkSecs)"></span></summary>
+                <div class="think-body" x-ref="thinkBox"></div>
+              </details>
+            </template>
             <template x-if="streamBuf">
               <div class="markdown-body streaming" x-ref="streamBox"></div>
             </template>
-            <template x-if="!streamBuf">
+            <template x-if="!streamBuf && !streamReasoning">
               <div class="typing-dots"><span></span><span></span><span></span></div>
             </template>
           </div>
@@ -438,7 +454,7 @@
       <template x-if="streaming">
         <button type="button" @click="stopGen()" class="btn-stop shrink-0">
           <span class="stop-square"></span>
-          <span x-text="streamBuf ? 'Stop' : 'Cancel'">Stop</span>
+          <span x-text="(streamBuf || streamReasoning) ? 'Stop' : 'Cancel'">Stop</span>
         </button>
       </template>
     </form>
